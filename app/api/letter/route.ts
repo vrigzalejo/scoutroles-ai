@@ -1,5 +1,6 @@
 import { connection } from "next/server";
 import { geminiLetter, geminiTailored } from "@/lib/letter";
+import { logProcess } from "@/lib/log";
 import { currentPass, geminiConfigured } from "@/lib/pass-http";
 import { consumeLetter, passIsActive } from "@/lib/pass-store";
 import type { Job, Profile, ScoredJob } from "@/lib/types";
@@ -16,9 +17,11 @@ export async function POST(request: Request) {
   await connection();
   const pass = await currentPass();
   if (!passIsActive(pass)) {
+    logProcess("letter", { step: "draft", result: "unsigned" });
     return Response.json({ error: "A free account is required for included letters." }, { status: 401 });
   }
   if (!geminiConfigured()) {
+    logProcess("letter", { step: "draft", result: "no-key" });
     return Response.json({ error: "The server Gemini key is not set yet." }, { status: 503 });
   }
   const body = (await request.json().catch(() => null)) as LetterBody | null;
@@ -26,6 +29,7 @@ export async function POST(request: Request) {
   const profile = body?.profile;
   const job = body?.job;
   if (!profile?.resume?.trim() || !job?.title?.trim() || !job.company?.trim()) {
+    logProcess("letter", { step: "draft", result: "incomplete", kind });
     return Response.json({ error: "The letter needs a resume, a title, and a company." }, { status: 400 });
   }
 
@@ -82,6 +86,7 @@ export async function POST(request: Request) {
             resume: profile.resume,
             geminiKey: "",
           }, scored);
+    logProcess("letter", { step: "draft", result: "ok", kind, model: draft.model });
     return Response.json({
       text: draft.text,
       model: draft.model,
@@ -89,6 +94,7 @@ export async function POST(request: Request) {
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "Could not write the draft.";
     const status = /not active/i.test(message) ? 402 : 502;
+    logProcess("letter", { step: "draft", result: "failed", kind, status, message });
     return Response.json({ error: message }, { status });
   }
 }

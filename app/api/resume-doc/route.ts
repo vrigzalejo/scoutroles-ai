@@ -1,5 +1,6 @@
 import { connection } from "next/server";
 import { geminiResumeDocument } from "@/lib/letter";
+import { logProcess } from "@/lib/log";
 import { currentPass, geminiConfigured } from "@/lib/pass-http";
 import { passIsActive } from "@/lib/pass-store";
 import { keepContacts, parseResumeDocument } from "@/lib/resume-pdf";
@@ -41,15 +42,18 @@ export async function POST(request: Request) {
   await connection();
   const pass = await currentPass();
   if (!passIsActive(pass)) {
+    logProcess("document", { step: "generate", result: "unsigned" });
     return Response.json({ error: "A free account is required for a tailored PDF." }, { status: 401 });
   }
   if (!geminiConfigured()) {
+    logProcess("document", { step: "generate", result: "no-key" });
     return Response.json({ error: "The server Gemini key is not set yet." }, { status: 503 });
   }
   const body = (await request.json().catch(() => null)) as ResumeDocBody | null;
   const profile = body?.profile;
   const job = body?.job;
   if (!profile?.resume?.trim() || !job?.title?.trim() || !job.company?.trim()) {
+    logProcess("document", { step: "generate", result: "incomplete" });
     return Response.json({ error: "The resume needs the original text, a title, and a company." }, { status: 400 });
   }
   const pdf =
@@ -77,9 +81,11 @@ export async function POST(request: Request) {
       { ...parsed, name: parsed.name || profile.name || "Resume", preparedFor: `${job.title} at ${job.company}` },
       profile.resume,
     );
+    logProcess("document", { step: "generate", result: "ok", source: "gemini" });
     return Response.json({ document, source: "gemini" });
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "Gemini did not write the document.";
+    logProcess("document", { step: "generate", result: "failed", message });
     return Response.json({ error: message }, { status: 502 });
   }
 }
