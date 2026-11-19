@@ -1,3 +1,4 @@
+import { logProcess } from "@/lib/log";
 import { htmlToText } from "@/lib/text";
 import type { Job, JobSource, JobsPayload, SourceReport } from "@/lib/types";
 
@@ -174,9 +175,11 @@ async function fromSource(
     const jobs = await run();
     return { jobs, report: { name, home: HOMES[name], count: jobs.length, ok: true } };
   } catch (error) {
+    const message = explain(error);
+    logProcess("jobs", { step: "source", source: name, result: "failed", message });
     return {
       jobs: [],
-      report: { name, home: HOMES[name], count: 0, ok: false, error: explain(error) },
+      report: { name, home: HOMES[name], count: 0, ok: false, error: message },
     };
   }
 }
@@ -759,7 +762,10 @@ function dedupe(jobs: Job[]): Job[] {
 }
 
 export async function loadJobs(force = false): Promise<JobsPayload> {
-  if (!force && cache && Date.now() - cache.at < TTL) return cache.payload;
+  if (!force && cache && Date.now() - cache.at < TTL) {
+    logProcess("jobs", { step: "load", result: "cached", roles: cache.payload.jobs.length });
+    return cache.payload;
+  }
   const batches = await Promise.all([
     fromSource("Remotive", remotive),
     fromSource("Remote OK", remoteOk),
@@ -787,5 +793,13 @@ export async function loadJobs(force = false): Promise<JobsPayload> {
     sources: batches.map((batch) => batch.report),
   };
   cache = { at: Date.now(), payload };
+  const failed = batches.filter((batch) => !batch.report.ok).map((batch) => batch.report.name);
+  logProcess("jobs", {
+    step: "load",
+    result: payload.jobs.length ? "ok" : "empty",
+    roles: payload.jobs.length,
+    sources: batches.filter((batch) => batch.report.ok).length,
+    failed: failed.join(", "),
+  });
   return payload;
 }

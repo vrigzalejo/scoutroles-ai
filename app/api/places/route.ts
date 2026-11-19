@@ -1,4 +1,5 @@
 import { connection } from "next/server";
+import { errorDetail, logProcess } from "@/lib/log";
 
 const PLACES = new Set([
   "city",
@@ -63,16 +64,21 @@ export async function GET(request: Request) {
       const latitude = Number(lat);
       const longitude = Number(lon);
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        logProcess("places", { step: "reverse", result: "invalid" });
         return Response.json({ error: "That location is not valid." }, { status: 400 });
       }
       const rows = await photon(
         `https://photon.komoot.io/reverse?lat=${latitude}&lon=${longitude}&lang=en`,
       );
       const place = label(rows[0] ?? {}, true);
+      logProcess("places", { step: "reverse", result: place ? "ok" : "empty" });
       return Response.json({ places: place ? [place] : [] });
     }
 
-    if (query.length < 2) return Response.json({ places: [] });
+    if (query.length < 2) {
+      logProcess("places", { step: "search", result: "short" });
+      return Response.json({ places: [] });
+    }
     const rows = await photon(
       `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=8&lang=en`,
     );
@@ -84,8 +90,11 @@ export async function GET(request: Request) {
       if (place && !places.includes(place)) places.push(place);
       if (places.length === 6) break;
     }
+    logProcess("places", { step: "search", result: "ok", count: places.length });
     return Response.json({ places });
-  } catch {
+  } catch (cause) {
+    const detail = errorDetail(cause);
+    logProcess("places", { step: "lookup", result: "failed", ...detail });
     return Response.json({ error: "Could not look up places." }, { status: 502 });
   }
 }

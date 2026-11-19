@@ -1,4 +1,5 @@
 import { Pool, type PoolClient } from "pg";
+import { databaseHost, errorDetail, logProcess } from "@/lib/log";
 
 const globalStore = globalThis as typeof globalThis & { scoutrolesPool?: Pool };
 
@@ -47,6 +48,8 @@ async function connect(): Promise<PoolClient> {
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
   }
+  const detail = errorDetail(last);
+  logProcess("database", { step: "connect", result: "failed", ...detail, database: databaseHost() });
   throw last;
 }
 
@@ -85,6 +88,11 @@ async function ensure() {
         data jsonb NOT NULL
       );
     `);
+    logProcess("database", { step: "schema", result: "ok", database: databaseHost() });
+  } catch (cause) {
+    const detail = errorDetail(cause);
+    logProcess("database", { step: "schema", result: "failed", ...detail, database: databaseHost() });
+    throw cause;
   } finally {
     client.release();
   }

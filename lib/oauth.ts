@@ -1,8 +1,11 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { get as httpsGet } from "node:https";
 import { createLocalJWKSet, importPKCS8, jwtVerify, SignJWT, type JSONWebKeySet } from "jose";
+import { databaseHost, logProcess } from "@/lib/log";
 import { isOAuthProvider, type OAuthProvider } from "@/lib/pass";
 import { PassAuthError } from "@/lib/pass-store";
+
+export { databaseHost };
 
 const keySets = new Map<string, ReturnType<typeof createLocalJWKSet>>();
 
@@ -141,32 +144,7 @@ function env(name: string): string {
 }
 
 export function logSignIn(detail: Record<string, string | number | boolean>): void {
-  const safe: Record<string, string | number | boolean> = {};
-  for (const [key, value] of Object.entries(detail)) {
-    safe[key] = typeof value === "string" ? scrubSignIn(value) : value;
-  }
-  console.error("[sign-in]", safe);
-}
-
-function scrubSignIn(value: string): string {
-  return value
-    .replace(/postgres(?:ql)?:\/\/\S+/gi, "[database]")
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
-    .replace(/\b(?:eyJ|ya29\.|gho_|github_pat_)[A-Za-z0-9._-]{8,}/g, "[token]")
-    .slice(0, 300);
-}
-
-export function databaseHost(): string {
-  const raw = process.env.DATABASE_URL?.trim() || "";
-  if (!raw) return "missing";
-  try {
-    const host = new URL(raw).hostname;
-    if (!host) return "invalid";
-    if (host === "localhost" || host === "127.0.0.1" || host === "::1") return "localhost";
-    return host;
-  } catch {
-    return "invalid";
-  }
+  logProcess("sign-in", detail);
 }
 
 function emailOk(email: string): boolean {

@@ -1,4 +1,5 @@
 import { connection } from "next/server";
+import { logProcess } from "@/lib/log";
 import { PASS_PRICE_CENTS } from "@/lib/pass";
 import { stripeClient } from "@/lib/stripe";
 
@@ -26,9 +27,11 @@ export async function POST(request: Request) {
       ],
       metadata: { product: "search-pass" },
     });
+    logProcess("checkout", { step: "start", result: session.url ? "ok" : "missing-url" });
     return Response.json({ url: session.url });
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "Could not start checkout.";
+    logProcess("checkout", { step: "start", result: "failed", message });
     return Response.json({ error: message }, { status: 503 });
   }
 }

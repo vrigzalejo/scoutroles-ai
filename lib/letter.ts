@@ -1,3 +1,4 @@
+import { logProcess } from "@/lib/log";
 import { guessName, joinList } from "@/lib/text";
 import type { Profile, ScoredJob } from "@/lib/types";
 
@@ -83,8 +84,16 @@ async function geminiText(
         if (cause instanceof DOMException && (cause.name === "TimeoutError" || cause.name === "AbortError")) {
           timedOut = true;
           lastError = `${model.id} took too long.`;
+          logProcess("gemini", { step: emptyLabel, model: model.id, result: "timeout", status: 0 });
           break;
         }
+        logProcess("gemini", {
+          step: emptyLabel,
+          model: model.id,
+          result: "failed",
+          status: 0,
+          message: cause instanceof Error ? cause.message : "",
+        });
         throw cause;
       }
       status = response.status;
@@ -92,10 +101,12 @@ async function geminiText(
       if (!response.ok) {
         lastError = data?.error?.message || `Gemini request failed (${response.status}).`;
         if (overloaded(response.status, lastError) && demandAttempt < demandWaits.length) {
+          logProcess("gemini", { step: emptyLabel, model: model.id, result: "retry", status, message: lastError });
           await wait(demandWaits[demandAttempt] ?? 15_000);
           demandAttempt += 1;
           continue;
         }
+        logProcess("gemini", { step: emptyLabel, model: model.id, result: "failed", status, message: lastError });
         break;
       }
       const text = data?.candidates?.[0]?.content?.parts
@@ -103,8 +114,12 @@ async function geminiText(
         .map((part) => part.text ?? "")
         .join("")
         .trim();
-      if (text) return { text, model: model.id };
+      if (text) {
+        logProcess("gemini", { step: emptyLabel, model: model.id, result: "ok", status });
+        return { text, model: model.id };
+      }
       lastError = `${model.id} returned an empty ${emptyLabel}.`;
+      logProcess("gemini", { step: emptyLabel, model: model.id, result: "empty", status, message: lastError });
       break;
     }
     if (timedOut || status === 404 || overloaded(status, lastError)) continue;
