@@ -12,7 +12,17 @@ export function SiteFooter() {
             Privacy
           </Link>
         </nav>
-        <p className="text-muted">© 2026 ScoutRoles</p>
+        <p className="text-muted">
+          © 2026 ScoutRoles by{" "}
+          <a
+            href="https://www.brigidoalejo.com/"
+            target="_blank"
+            rel="noopener"
+            className="font-medium text-ink underline decoration-line underline-offset-4 hover:text-pine"
+          >
+            Brigido Alejo
+          </a>
+        </p>
       </div>
     </footer>
   );
