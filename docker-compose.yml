@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: scoutroles
+      POSTGRES_PASSWORD: scoutroles
+      POSTGRES_DB: scoutroles
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scoutroles -d scoutroles"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      DATABASE_URL: postgres://scoutroles:scoutroles@db:5432/scoutroles
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
