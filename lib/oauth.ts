@@ -140,6 +140,35 @@ function env(name: string): string {
   return process.env[name]?.trim() || "";
 }
 
+export function logSignIn(detail: Record<string, string | number | boolean>): void {
+  const safe: Record<string, string | number | boolean> = {};
+  for (const [key, value] of Object.entries(detail)) {
+    safe[key] = typeof value === "string" ? scrubSignIn(value) : value;
+  }
+  console.error("[sign-in]", safe);
+}
+
+function scrubSignIn(value: string): string {
+  return value
+    .replace(/postgres(?:ql)?:\/\/\S+/gi, "[database]")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+    .replace(/\b(?:eyJ|ya29\.|gho_|github_pat_)[A-Za-z0-9._-]{8,}/g, "[token]")
+    .slice(0, 300);
+}
+
+export function databaseHost(): string {
+  const raw = process.env.DATABASE_URL?.trim() || "";
+  if (!raw) return "missing";
+  try {
+    const host = new URL(raw).hostname;
+    if (!host) return "invalid";
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1") return "localhost";
+    return host;
+  } catch {
+    return "invalid";
+  }
+}
+
 function emailOk(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 200;
 }
@@ -153,6 +182,8 @@ async function tokenRequest(url: string, body: Record<string, string>): Promise<
   const data = (await response.json().catch(() => null)) as Record<string, unknown> | null;
   if (!response.ok || !data || typeof data.id_token !== "string") {
     const code = typeof data?.error === "string" ? data.error : "";
+    const detail = typeof data?.error_description === "string" ? data.error_description : "";
+    logSignIn({ step: "token", status: response.status, error: code || (response.ok ? "missing-id-token" : "http"), detail });
     const signIn =
       code === "invalid_client" ? "invalid-client" : code === "redirect_uri_mismatch" ? "redirect" : code === "invalid_grant" ? "invalid-grant" : "failed";
     throw new PassAuthError("That sign-in could not be confirmed.", response.ok ? 401 : response.status, signIn);
@@ -338,8 +369,16 @@ async function githubIdentity(code: string, redirectUri: string, verifier: strin
       code_verifier: verifier,
     }),
   });
-  const token = (await tokenResponse.json().catch(() => null)) as { access_token?: string } | null;
-  if (!tokenResponse.ok || !token?.access_token) throw new PassAuthError("GitHub did not confirm this account.");
+  const token = (await tokenResponse.json().catch(() => null)) as { access_token?: string; error?: string; error_description?: string } | null;
+  if (!tokenResponse.ok || !token?.access_token) {
+    logSignIn({
+      step: "github-token",
+      status: tokenResponse.status,
+      error: token?.error || (tokenResponse.ok ? "missing-token" : "http"),
+      detail: token?.error_description || "",
+    });
+    throw new PassAuthError("GitHub did not confirm this account.");
+  }
   const headers = {
     Authorization: `Bearer ${token.access_token}`,
     Accept: "application/vnd.github+json",
@@ -358,6 +397,13 @@ async function githubIdentity(code: string, redirectUri: string, verifier: strin
   const chosen = list.find((item) => item.primary && item.verified) || list.find((item) => item.verified);
   const email = chosen?.email?.trim().toLowerCase() || "";
   if (!sub || !emailOk(email)) {
+    logSignIn({
+      step: "github-email",
+      userStatus: userResponse.status,
+      emailStatus: emailResponse.status,
+      hasAccount: Boolean(sub),
+      verifiedEmail: emailOk(email),
+    });
     throw new PassAuthError("GitHub did not confirm an email. Verify an email on GitHub and try again.");
   }
   return { email, sub };
