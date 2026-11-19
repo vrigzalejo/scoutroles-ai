@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/button";
+import { Icon } from "@/components/icon";
 import { resumeKind, type ResumeFile } from "@/lib/resume-file";
 
 export function ResumePreview({ file, onClose }: { file: ResumeFile; onClose: () => void }) {
@@ -82,9 +83,11 @@ export function ResumePreview({ file, onClose }: { file: ResumeFile; onClose: ()
           </div>
           <div className="flex shrink-0 gap-2">
             <Button tone="ghost" className="px-3 py-1.5" onClick={download}>
+              <Icon name="download" />
               Download
             </Button>
             <Button tone="ghost" className="px-3 py-1.5" onClick={onClose}>
+              <Icon name="close" />
               Close
             </Button>
           </div>

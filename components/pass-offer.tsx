@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/button";
+import { Icon } from "@/components/icon";
 import { SIGN_IN_PROVIDERS, type OAuthProvider, type PassStatus } from "@/lib/pass";
 
 const providerCopy: Record<(typeof SIGN_IN_PROVIDERS)[number], string> = {
@@ -113,16 +114,7 @@ export function PassOffer({
             Signed in with {signedInWith} as {pass.email}. The resume and tracker saved here stay with this account.
           </p>
           <Button tone="ghost" className="mt-3 w-full" onClick={() => void startSignOut()} disabled={checking}>
-            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
-              <path
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6.5 2.75H3.75a1 1 0 0 0-1 1v8.5a1 1 0 0 0 1 1H6.5M6.25 8h7M11 5.25 13.75 8 11 10.75"
-              />
-            </svg>
+            <Icon name="logout" />
             Log out
           </Button>
         </>
@@ -162,7 +154,10 @@ export function PassOffer({
               ))}
             </div>
             <div className="mt-4 flex justify-end gap-2">
-              <Button tone="ghost" onClick={() => setLogoutReasons(null)}>Stay signed in</Button>
+              <Button tone="ghost" onClick={() => setLogoutReasons(null)}>
+                <Icon name="check" />
+                Stay signed in
+              </Button>
               <Button
                 tone="primary"
                 onClick={() => {
@@ -170,6 +165,7 @@ export function PassOffer({
                   onSignOut();
                 }}
               >
+                <Icon name="logout" />
                 Log out
               </Button>
             </div>

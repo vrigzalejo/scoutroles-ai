@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/button";
+import { Icon } from "@/components/icon";
 import type { Review } from "@/components/drawer";
 
 export function Autopilot({
@@ -49,6 +50,7 @@ export function Autopilot({
             </p>
           </div>
           <Button tone="ghost" onClick={onStop}>
+            <Icon name="stop" />
             Stop
           </Button>
         </div>
@@ -67,12 +69,15 @@ export function Autopilot({
 
         <div className="mt-4 flex flex-wrap gap-2">
           <Button tone="primary" onClick={() => void open()}>
+            <Icon name="external" />
             Copy letter and open posting
           </Button>
           <Button tone="ghost" onClick={onSent} disabled={!opened}>
+            <Icon name="check" />
             I sent it
           </Button>
           <Button tone="quiet" onClick={onSkip}>
+            <Icon name="skip" />
             Skip
           </Button>
         </div>

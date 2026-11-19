@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Autopilot } from "@/components/autopilot";
+import { Icon } from "@/components/icon";
 import { Board } from "@/components/board";
 import { Brief } from "@/components/brief";
 import { Drawer, type Review } from "@/components/drawer";
@@ -25,7 +26,6 @@ import {
 import { renderResumeDocx } from "@/lib/resume-docx";
 import {
   keepContacts,
-  localResumeDocument,
   parseResumeDocument,
   resumePdfName,
   resumePlainText,
@@ -583,75 +583,59 @@ export function Workspace() {
     setLetterError("");
     try {
       const source = await textFromOriginal();
-      const local = localResumeDocument({
-        name: profile.name,
-        resume: source.text,
-        role: current.title,
-        company: current.company,
-        skills: current.matched,
-      });
       const included = Boolean(pass?.active && pass.gemini);
       const key = profile.geminiKey.trim();
       if (!included && !key) {
-        await storeResumePdf(current, local);
-        setLetterError("Sign in for a version rewritten around this job. This document arranges the original resume for the role.");
+        setLetterError("Generate document needs Gemini. Sign in, or add a Gemini key.");
         return;
       }
-      try {
-        let raw = "";
-        if (included) {
-          const response = await fetch("/api/resume-doc", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              skills: current.matched,
-              fileName: source.fileName,
-              file: source.pdfBase64 ? { mimeType: "application/pdf", data: source.pdfBase64 } : undefined,
-              profile: {
-                name: profile.name,
-                roles: profile.roles,
-                location: profile.location,
-                resume: source.text,
-              },
-              job: {
-                id: current.id,
-                title: current.title,
-                company: current.company,
-                location: current.location,
-                description: current.description,
-                url: current.url,
-                applyUrl: current.applyUrl,
-                salary: current.salary,
-              },
-            }),
-          });
-          const data = (await response.json().catch(() => null)) as {
-            document?: ResumeDocument;
-            source?: string;
-            error?: string;
-          } | null;
-          if (!response.ok || !data?.document) throw new Error(data?.error || "Could not write the resume.");
-          await storeResumePdf(current, data.document);
-          if (data.source !== "gemini") {
-            setLetterError("The document uses your original resume, arranged for this role.");
-          }
-          return;
-        }
-        raw = await geminiResumeDocument(key, { ...profile, resume: source.text }, toScored(current), source);
-        const parsed = parseResumeDocument(raw);
-        if (!parsed) throw new Error("Gemini did not return a resume.");
-        await storeResumePdf(
-          current,
-          keepContacts(
-            { ...parsed, name: parsed.name || profile.name, preparedFor: `${current.title} at ${current.company}` },
-            source.text,
-          ),
-        );
-      } catch (cause) {
-        await storeResumePdf(current, local);
-        const message = cause instanceof Error ? cause.message : "Gemini did not finish.";
-        setLetterError(`${message} The document uses your original resume, arranged for this role.`);
+      if (included) {
+        const response = await fetch("/api/resume-doc", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            skills: current.matched,
+            fileName: source.fileName,
+            file: source.pdfBase64 ? { mimeType: "application/pdf", data: source.pdfBase64 } : undefined,
+            profile: {
+              name: profile.name,
+              roles: profile.roles,
+              location: profile.location,
+              resume: source.text,
+            },
+            job: {
+              id: current.id,
+              title: current.title,
+              company: current.company,
+              location: current.location,
+              description: current.description,
+              url: current.url,
+              applyUrl: current.applyUrl,
+              salary: current.salary,
+            },
+          }),
+        });
+        const data = (await response.json().catch(() => null)) as {
+          document?: ResumeDocument;
+          error?: string;
+        } | null;
+        if (!response.ok || !data?.document) throw new Error(data?.error || "Gemini did not write the document.");
+        await storeResumePdf(current, data.document);
+        return;
       }
+      const raw = await geminiResumeDocument(key, { ...profile, resume: source.text }, toScored(current), source);
+      const parsed = parseResumeDocument(raw);
+      if (!parsed) throw new Error("Gemini did not return a resume document.");
+      await storeResumePdf(
+        current,
+        keepContacts(
+          { ...parsed, name: parsed.name || profile.name, preparedFor: `${current.title} at ${current.company}` },
+          source.text,
+        ),
+      );
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Gemini did not write the document.";
+      setLetterError(/document/i.test(message) ? message : `${message} The document was not created.`);
     } finally {
       setBusy(false);
     }
@@ -730,7 +714,7 @@ export function Workspace() {
       <header className="sticky top-0 z-20 shrink-0 border-b border-line bg-paper/90 backdrop-blur lg:static">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
           <a href="#top" className="flex items-center gap-2.5">
-            <img src="/logo.svg" alt="" width={36} height={36} className="size-9" />
+            <img src="/logo.svg?v=2" alt="" width={36} height={36} className="size-9" />
             <span className="font-serif text-xl tracking-tight">ScoutRoles</span>
           </a>
           <p className="hidden text-sm text-muted sm:block">Free matching for open roles</p>
@@ -738,15 +722,17 @@ export function Workspace() {
             <button
               type="button"
               onClick={() => setView("roles")}
-              className={`rounded-full px-3 py-1.5 text-sm ${view === "roles" ? "bg-ink text-paper" : "text-muted"}`}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm ${view === "roles" ? "bg-ink text-paper" : "text-muted"}`}
             >
+              <Icon name="roles" className="size-3.5" />
               Roles
             </button>
             <button
               type="button"
               onClick={() => setView("tracker")}
-              className={`rounded-full px-3 py-1.5 text-sm ${view === "tracker" ? "bg-ink text-paper" : "text-muted"}`}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm ${view === "tracker" ? "bg-ink text-paper" : "text-muted"}`}
             >
+              <Icon name="tracker" className="size-3.5" />
               Tracker{count ? ` ${count}` : ""}
             </button>
           </nav>

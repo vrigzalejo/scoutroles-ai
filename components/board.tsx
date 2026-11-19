@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/button";
+import { Icon } from "@/components/icon";
 import { hue, initials, timeAgo } from "@/lib/text";
 import { STATUS_LABEL, type ScoredJob, type SourceReport, type Tracked } from "@/lib/types";
 
@@ -82,6 +83,7 @@ export function Board({
           </p>
         </div>
         <Button tone="ghost" onClick={onRefresh} disabled={loading}>
+          <Icon name="refresh" />
           Refresh listings
         </Button>
       </div>
@@ -202,6 +204,7 @@ export function Board({
                     ) : null}
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <Button tone="primary" className="px-3 py-1.5" onClick={() => onOpen(item)}>
+                        <Icon name="eye" />
                         Review
                       </Button>
                       {saved ? (
@@ -214,6 +217,7 @@ export function Board({
                         </button>
                       ) : (
                         <Button tone="ghost" className="px-3 py-1.5" onClick={() => onSave(item)}>
+                          <Icon name="bookmark" />
                           Save
                         </Button>
                       )}
@@ -235,6 +239,7 @@ export function Board({
       )}
       {hasMore && !loading ? (
         <Button tone="ghost" onClick={onMore}>
+          <Icon name="chevron" />
           Show more
         </Button>
       ) : null}

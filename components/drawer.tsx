@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/components/button";
+import { Icon } from "@/components/icon";
 import { resumeKind } from "@/lib/resume-file";
 import { timeAgo } from "@/lib/text";
 import type { ResumeDocument } from "@/lib/resume-pdf";
@@ -120,6 +121,7 @@ export function Drawer({
             <p className="mt-1 text-xs uppercase tracking-[0.16em] text-muted">fit</p>
           </div>
           <Button tone="ghost" onClick={onClose}>
+            <Icon name="close" />
             Close
           </Button>
         </div>
@@ -134,11 +136,13 @@ export function Drawer({
               {review.publishedAt ? ` · ${timeAgo(review.publishedAt)}` : ""}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <a href={review.url} target="_blank" rel="noopener" className="rounded-full bg-pine px-3 py-1.5 text-sm font-medium text-paper">
+              <a href={review.url} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 rounded-full bg-pine px-3 py-1.5 text-sm font-medium text-paper">
+                <Icon name="external" />
                 Open listing
               </a>
               {review.applyUrl !== review.url ? (
-                <a href={review.applyUrl} target="_blank" rel="noopener" className="rounded-full border border-line px-3 py-1.5 text-sm">
+                <a href={review.applyUrl} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-sm">
+                  <Icon name="external" />
                   Company form
                 </a>
               ) : null}
@@ -203,9 +207,11 @@ export function Drawer({
               <p className="label mb-0">Letter</p>
               <div className="flex flex-wrap gap-2">
                 <Button tone="ghost" className="px-3 py-1.5" onClick={onDraft} disabled={busy}>
+                  <Icon name="draft" />
                   Plain draft
                 </Button>
                 <Button tone="primary" className="px-3 py-1.5" onClick={onGemini} disabled={busy || !hasGemini}>
+                  <Icon name="spark" />
                   {busy ? "Writing…" : "Gemini draft"}
                 </Button>
               </div>
@@ -226,6 +232,7 @@ export function Drawer({
             {error && !error.includes("document") ? <p className="mt-2 text-sm text-clay">{error}</p> : null}
             <div className="mt-2">
               <Button tone="ghost" className="px-3 py-1.5" onClick={copy} disabled={!review.letter.trim()}>
+                <Icon name={copied ? "check" : "copy"} />
                 {copied ? "Copied" : "Copy letter"}
               </Button>
             </div>
@@ -235,13 +242,14 @@ export function Drawer({
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <p className="label mb-0">Resume for this role</p>
               <Button tone="primary" className="px-3 py-1.5" onClick={onCreatePdf} disabled={busy}>
-                {busy ? "Writing the document…" : "Create document"}
+                <Icon name="document" />
+                {busy ? "Writing the document…" : "Generate document"}
               </Button>
             </div>
             <p className="mb-2 text-xs text-muted">
               {hasGemini
-                ? `A Word document written for this posting from ${sourceName || "your resume"}. Extra work is listed under Additional Experiences.`
-                : `A Word document arranged for this posting from ${sourceName || "your resume"}. Sign in and it is rewritten around the job.`}
+                ? `Gemini writes a Word document for this posting from ${sourceName || "your resume"}. Extra work is listed under Additional Experiences.`
+                : "Gemini writes this document from your resume. Sign in, or add a Gemini key, before creating it."}
             </p>
             {error.includes("document") ? <p className="mb-2 text-sm text-clay">{error}</p> : null}
             {resumeDocument ? (
@@ -252,11 +260,11 @@ export function Drawer({
               <iframe title={resumePdf?.name || "Tailored resume"} src={pdfUrl} className="h-[32rem] w-full rounded-2xl border border-line bg-white" />
             ) : resumePdf ? (
               <p className="rounded-2xl border border-dashed border-line px-4 py-8 text-center text-sm text-muted">
-                Create the document again to refresh this preview. The download is still the Word file.
+                Generate the document again to refresh this preview. The download is still the Word file.
               </p>
             ) : (
               <p className="rounded-2xl border border-dashed border-line px-4 py-8 text-center text-sm text-muted">
-                Create a Word document written for this role, then download it and attach it on the real posting.
+                Generate a Word document written for this role, then download it and attach it on the real posting.
               </p>
             )}
             <div className="mt-2 flex flex-wrap gap-2">
@@ -274,9 +282,11 @@ export function Drawer({
                   URL.revokeObjectURL(url);
                 }}
               >
+                <Icon name="download" />
                 Download document
               </Button>
               <Button tone="ghost" className="px-3 py-1.5" onClick={copyResume} disabled={!review.tailored.trim()}>
+                <Icon name={copiedResume ? "check" : "copy"} />
                 {copiedResume ? "Copied" : "Copy text"}
               </Button>
             </div>
@@ -301,15 +311,20 @@ export function Drawer({
                   key={status}
                   type="button"
                   onClick={() => onStatus(status)}
-                  className={`rounded-full px-3 py-1.5 text-sm ${
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm ${
                     review.status === status ? "bg-ink text-paper" : "bg-paper text-ink"
                   }`}
                 >
+                  <Icon
+                    name={status === "saved" ? "bookmark" : status === "applied" ? "check" : status === "interview" ? "eye" : status === "offer" ? "spark" : "close"}
+                    className="size-3.5"
+                  />
                   {STATUS_LABEL[status]}
                 </button>
               ))}
               {review.status ? (
-                <button type="button" onClick={onRemove} className="px-2 text-sm text-muted hover:text-clay">
+                <button type="button" onClick={onRemove} className="inline-flex items-center gap-1 px-2 text-sm text-muted hover:text-clay">
+                  <Icon name="trash" className="size-3.5" />
                   Remove
                 </button>
               ) : null}

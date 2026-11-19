@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { Icon } from "@/components/icon";
 
 export function PlaceField({
   value,
@@ -108,10 +109,11 @@ export function PlaceField({
         <span className="label mb-0">Places</span>
         <button
           type="button"
-          className="text-xs font-medium text-pine underline-offset-2 hover:underline disabled:opacity-60"
+          className="inline-flex items-center gap-1 text-xs font-medium text-pine underline-offset-2 hover:underline disabled:opacity-60"
           onClick={locate}
           disabled={locating}
         >
+          <Icon name="pin" className="size-3.5" />
           {locating ? "Finding…" : "Use current location"}
         </button>
       </div>

@@ -7,20 +7,13 @@ Search requires a free account. Each email keeps that person's tracker and brief
 ## Run
 
 ```bash
-npm install
-npm run dev
+docker compose up -d db
+cargo run
 ```
 
 Open [http://localhost:3000](http://localhost:3000). Paste a resume, or use the sample, then choose **Rank open roles**.
 
-Accounts are stored in Postgres. Start the database, then the app:
-
-```bash
-docker compose up -d db
-npm run dev
-```
-
-`DATABASE_URL` in `.env.local` should point at `localhost:5432`. Docker Compose uses the same database for the production app:
+Accounts are stored in Postgres. `DATABASE_URL` in `.env.local` should point at `localhost:5432`. Docker Compose builds this Rust server with the database:
 
 ```bash
 docker compose up --build

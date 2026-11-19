@@ -18,8 +18,8 @@ export const metadata: Metadata = {
   description:
     "Free job search that ranks public listings against your resume, drafts a letter, and tracks what you send.",
   icons: {
-    icon: [{ url: "/logo.svg", type: "image/svg+xml" }],
-    apple: [{ url: "/logo.svg", type: "image/svg+xml" }],
+    icon: [{ url: "/logo.svg?v=2", type: "image/svg+xml" }],
+    apple: [{ url: "/logo.svg?v=2", type: "image/svg+xml" }],
   },
 };
 
