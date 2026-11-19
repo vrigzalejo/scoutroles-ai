@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/button";
+import { Icon } from "@/components/icon";
 import type { PassStatus } from "@/lib/pass";
 
 export function ClaimPass({ sessionId }: { sessionId: string }) {
@@ -39,7 +40,7 @@ export function ClaimPass({ sessionId }: { sessionId: string }) {
   return (
     <main className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-6 py-16">
       <p className="flex items-center gap-3 font-serif text-4xl text-ink">
-        <img src="/logo.svg" alt="" width={44} height={44} className="size-11" />
+        <img src="/logo.svg?v=2" alt="" width={44} height={44} className="size-11" />
         ScoutRoles
       </p>
       {status?.active ? (
@@ -61,6 +62,7 @@ export function ClaimPass({ sessionId }: { sessionId: string }) {
         </>
       )}
       <Button tone="primary" className="mt-6 w-fit" onClick={() => (window.location.href = "/")}>
+        <Icon name="back" />
         Back to roles
       </Button>
     </main>

@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/button";
+import { Icon } from "@/components/icon";
 import { timeAgo } from "@/lib/text";
 import { STATUS_LABEL, STATUS_ORDER, type Tracked, type TrackStatus } from "@/lib/types";
 
@@ -57,9 +58,11 @@ export function Tracker({
                   </div>
                   <div className="flex gap-2">
                     <Button tone="primary" className="px-3 py-1.5" onClick={() => onOpen(entry)}>
+                      <Icon name="arrow" />
                       Open
                     </Button>
                     <Button tone="ghost" className="px-3 py-1.5" onClick={() => onRemove(entry.id)}>
+                      <Icon name="trash" />
                       Remove
                     </Button>
                   </div>

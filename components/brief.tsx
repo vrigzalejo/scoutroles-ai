@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/button";
+import { Icon } from "@/components/icon";
 import { PassOffer } from "@/components/pass-offer";
 import { PlaceField } from "@/components/place-field";
 import { ResumePreview } from "@/components/resume-preview";
@@ -125,7 +126,7 @@ export function Brief({
             <span className="label mb-0">Resume</span>
             <button
               type="button"
-              className="text-xs font-medium text-pine underline-offset-2 hover:underline"
+              className="inline-flex items-center gap-1 text-xs font-medium text-pine underline-offset-2 hover:underline"
               onClick={() => {
                 onClearFile();
                 onChange({
@@ -137,6 +138,7 @@ export function Brief({
                 });
               }}
             >
+              <Icon name="sample" className="size-3.5" />
               Use a sample
             </button>
           </div>
@@ -158,6 +160,7 @@ export function Brief({
               <div className="mb-2 flex items-center justify-between gap-2 rounded-2xl border border-line bg-paper px-3 py-2">
                 <p className="min-w-0 truncate text-sm text-ink">{resumeFile.name}</p>
                 <Button tone="primary" className="px-3 py-1.5" onClick={() => setPreview(true)}>
+                  <Icon name="eye" />
                   Preview
                 </Button>
               </div>
@@ -185,17 +188,19 @@ export function Brief({
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Button tone="ghost" className="px-3 py-1.5 text-xs" onClick={() => input.current?.click()}>
+              <Icon name="upload" />
               {reading ? "Reading file…" : "Upload PDF, Word, or text"}
             </Button>
             {profile.resume || resumeFile ? (
               <button
                 type="button"
-                className="text-xs text-muted hover:text-ink"
+                className="inline-flex items-center gap-1 text-xs text-muted hover:text-ink"
                 onClick={() => {
                   set("resume", "");
                   onClearFile();
                 }}
               >
+                <Icon name="clear" className="size-3.5" />
                 Clear
               </button>
             ) : null}
@@ -243,6 +248,7 @@ export function Brief({
         />
 
         <Button tone="primary" type="submit" className="w-full py-2.5" disabled={loading || autoBusy || !pass?.active}>
+          <Icon name="rank" />
           {loading ? "Checking public boards…" : "Rank open roles"}
         </Button>
         {!pass?.active ? (
@@ -281,6 +287,7 @@ export function Brief({
             </label>
           </div>
           <Button tone="primary" className="w-full" disabled={loading || autoBusy || !pass?.active} onClick={onAutopilot}>
+            <Icon name="play" />
             {autoBusy ? "Preparing matches…" : "Run autopilot"}
           </Button>
           {autoNote ? <p className="text-xs leading-relaxed text-clay">{autoNote}</p> : null}

@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ScoutRoles</title>
+  <link rel="icon" href="/logo.svg?v=2" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <header>
+    <a class="brand" href="/">
+      <img src="/logo.svg?v=2" alt="" width="36" height="36">
+      <span>ScoutRoles</span>
+    </a>
+    <p class="tag">Free matching for open roles</p>
+    <nav>
+      <a href="/" class="{% if !tracker_view %}on{% endif %}">Roles</a>
+      <a href="/tracker" class="{% if tracker_view %}on{% endif %}">Tracker{% if tracker.len() > 0 %} {{ tracker.len() }}{% endif %}</a>
+    </nav>
+  </header>
+  <main>
+    <form class="brief" method="post" action="/brief">
+      <div>
+        <h1>Your brief</h1>
+        <p class="muted">Paste a resume. Matching uses that text, then you open the real posting yourself.</p>
+      </div>
+      <label>
+        <span class="label">Your name</span>
+        <input class="field" name="name" value="{{ name }}" placeholder="Alex Rivera" autocomplete="name">
+      </label>
+      <label>
+        <span class="label">Target roles</span>
+        <input class="field" name="roles" value="{{ roles }}" placeholder="frontend engineer, product designer">
+      </label>
+      <label>
+        <span class="label">Places</span>
+        <input class="field" name="location" value="{{ location }}" placeholder="Austin, Berlin">
+      </label>
+      <label class="check">
+        <input type="checkbox" name="remote_only" {% if remote_only %}checked{% endif %}>
+        Remote roles only
+      </label>
+      <label>
+        <span class="label">Resume</span>
+        <textarea class="field resume" name="resume" rows="9" placeholder="Paste the text of your resume.">{{ resume }}</textarea>
+      </label>
+      <button class="text" type="submit" name="action" value="sample">Use a sample</button>
+      {% if signed_in %}
+      <p class="account">Signed in with {{ provider }} as {{ email }}. The resume and tracker saved here stay with this account.</p>
+      {% if logout_ask %}
+      <div class="dialog">
+        <p class="strong">Log out?</p>
+        <p class="muted">This account keeps the resume and tracker. This browser will be signed out.</p>
+        <div class="row">
+          <a class="btn" href="/">Stay signed in</a>
+          <button class="btn primary slim" type="submit" formaction="/logout">Log out</button>
+        </div>
+      </div>
+      {% else %}
+      <a class="btn wide" href="/logout">Log out</a>
+      {% endif %}
+      {% else %}
+      <p class="account">Sign in with Google or GitHub. Only that account can open the resume and tracker saved for it.</p>
+      <a class="btn wide" href="/api/pass/oauth/google">Continue with Google</a>
+      <a class="btn wide" href="/api/pass/oauth/github">Continue with GitHub</a>
+      {% endif %}
+      {% if notice != "" %}<p class="clay">{{ notice }}</p>{% endif %}
+      <button class="btn primary" type="submit" name="action" value="rank" {% if !signed_in %}disabled{% endif %}>Rank open roles</button>
+      {% if !signed_in %}<p class="muted tight">Start a free account to search roles.</p>{% endif %}
+    </form>
+
+    <section class="board">
+      {% if tracker_view %}
+      <h2>Tracker</h2>
+      {% if tracker.is_empty() %}
+      <p class="muted">Saved roles will show up here.</p>
+      {% endif %}
+      {% for item in tracker %}
+      <article class="job">
+        <div>
+          <h3>{{ item.title }}</h3>
+          <p class="muted">{{ item.company }} · {{ item.status }}</p>
+        </div>
+        <a class="btn" href="{{ item.url }}" target="_blank" rel="noopener">Open posting</a>
+      </article>
+      {% endfor %}
+      {% else if !ranked %}
+      <div class="hero">
+        <p class="display">Find the roles that actually fit, then apply on the real posting.</p>
+        <ol>
+          <li><span>01</span><strong>Add a resume</strong><p>Paste it or try the sample. Scoring uses the text you provide.</p></li>
+          <li><span>02</span><strong>Rank the boards</strong><p>Start a free account, then search public feeds from Remotive, Remote OK, Jobicy, Arbeitnow, and Himalayas.</p></li>
+          <li><span>03</span><strong>Draft and send</strong><p>Write a short letter, open the listing, and track what you did.</p></li>
+        </ol>
+      </div>
+      {% else %}
+      <div class="board-head">
+        <div>
+          <h2>{{ shown }} roles</h2>
+          <p class="muted">{{ shown }} shown of {{ total }}.</p>
+        </div>
+        <a class="btn" href="/?ranked=1&refresh=1">Refresh listings</a>
+      </div>
+      {% if sample_mode %}
+      <p class="banner">The boards did not answer, so these examples are standing in. Refresh in a minute for live listings.</p>
+      {% endif %}
+      <div class="sources">
+        {% for source in sources %}
+        <a href="{{ source.home }}" target="_blank" rel="noopener">{{ source.name }}{% if source.ok %} {{ source.count }}{% else %} · quiet{% endif %}</a>
+        {% endfor %}
+      </div>
+      {% for job in jobs %}
+      <article class="job">
+        <div>
+          <p class="score">{{ job.score }}</p>
+          <h3>{{ job.title }}</h3>
+          <p class="muted">{{ job.company }} · {{ job.source }}{% if job.location != "" %} · {{ job.location }}{% endif %}{% if job.salary != "" %} · {{ job.salary }}{% endif %}</p>
+          <p>{{ job.reasons }}</p>
+        </div>
+        <div class="row">
+          <a class="btn" href="/?ranked=1&open={{ job.id }}">Open</a>
+          <a class="btn" href="{{ job.url }}" target="_blank" rel="noopener">Posting</a>
+          <button class="btn" type="submit" form="save-{{ loop.index }}">Save</button>
+        </div>
+      </article>
+      <form id="save-{{ loop.index }}" method="post" action="/track">
+        <input type="hidden" name="id" value="{{ job.id }}">
+      </form>
+      {% endfor %}
+      {% if role_open %}
+      <article class="drawer">
+        <div class="board-head">
+          <div>
+            <p class="score">{{ role_score }}</p>
+            <h2>{{ role_title }}</h2>
+            <p class="muted">{{ role_company }} · {{ role_location }}</p>
+          </div>
+          <a class="btn primary slim" href="{{ role_url }}" target="_blank" rel="noopener">Open posting</a>
+        </div>
+        <p>{{ role_reasons }}</p>
+        <form method="post" action="/letter">
+          <input type="hidden" name="id" value="{{ role_id }}">
+          <label>
+            <span class="label">Letter</span>
+            <textarea class="field resume" name="letter" rows="10">{{ role_letter }}</textarea>
+          </label>
+          <button class="btn primary slim" type="submit">Save letter</button>
+        </form>
+      </article>
+      {% endif %}
+      {% endif %}
+    </section>
+  </main>
+  <footer>
+    <a href="https://github.com/vrigzalejo" target="_blank" rel="noopener">Brigido Alejo</a>
+  </footer>
+</body>
+</html>

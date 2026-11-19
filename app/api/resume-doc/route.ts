@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { geminiResumeDocument } from "@/lib/letter";
 import { currentPass, geminiConfigured } from "@/lib/pass-http";
 import { passIsActive } from "@/lib/pass-store";
-import { keepContacts, localResumeDocument, parseResumeDocument, type ResumeDocument } from "@/lib/resume-pdf";
+import { keepContacts, parseResumeDocument } from "@/lib/resume-pdf";
 import type { Job, Profile, ScoredJob } from "@/lib/types";
 
 type ResumeDocBody = {
@@ -52,20 +52,11 @@ export async function POST(request: Request) {
   if (!profile?.resume?.trim() || !job?.title?.trim() || !job.company?.trim()) {
     return Response.json({ error: "The resume needs the original text, a title, and a company." }, { status: 400 });
   }
-  const local = localResumeDocument({
-    name: profile.name || "",
-    resume: profile.resume,
-    role: job.title,
-    company: job.company,
-    skills: body?.skills ?? [],
-  });
   const pdf =
     body?.file?.mimeType === "application/pdf" && body.file.data && body.file.data.length <= 6_000_000
       ? body.file.data
       : "";
 
-  let document: ResumeDocument = local;
-  let source: "gemini" | "plain" = "plain";
   try {
     const raw = await geminiResumeDocument(
       process.env.GEMINI_API_KEY || "",
@@ -81,15 +72,14 @@ export async function POST(request: Request) {
       { text: profile.resume, fileName: body?.fileName, pdfBase64: pdf || undefined },
     );
     const parsed = parseResumeDocument(raw);
-    if (!parsed) throw new Error("Gemini did not return a resume.");
-    document = keepContacts(
-      { ...parsed, name: parsed.name || local.name, preparedFor: `${job.title} at ${job.company}` },
+    if (!parsed) throw new Error("Gemini did not return a resume document.");
+    const document = keepContacts(
+      { ...parsed, name: parsed.name || profile.name || "Resume", preparedFor: `${job.title} at ${job.company}` },
       profile.resume,
     );
-    source = "gemini";
-  } catch {
-    document = local;
+    return Response.json({ document, source: "gemini" });
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : "Gemini did not write the document.";
+    return Response.json({ error: message }, { status: 502 });
   }
-
-  return Response.json({ document, source });
 }

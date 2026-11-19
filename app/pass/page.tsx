@@ -20,7 +20,7 @@ export default function PassPage({
       fallback={
         <main className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-6 py-16">
           <p className="flex items-center gap-3 font-serif text-4xl text-ink">
-            <img src="/logo.svg" alt="" width={44} height={44} className="size-11" />
+            <img src="/logo.svg?v=2" alt="" width={44} height={44} className="size-11" />
             ScoutRoles
           </p>
           <h1 className="mt-4 font-serif text-3xl text-ink">Opening your pass</h1>
