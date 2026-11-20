@@ -63,7 +63,7 @@ export async function POST(request: Request) {
 
   try {
     const scored = scoredFrom(job);
-    scored.matched = (body.skills ?? []).filter((skill): skill is string => typeof skill === "string").slice(0, 12);
+    scored.matched = (body?.skills ?? []).filter((skill): skill is string => typeof skill === "string").slice(0, 12);
     const raw = await geminiResumeDocument(
       process.env.GEMINI_API_KEY || "",
       {
