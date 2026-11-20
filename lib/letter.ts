@@ -1,4 +1,6 @@
 import { logProcess } from "@/lib/log";
+import { hasSkill } from "@/lib/match";
+import { SKILLS, skillHaystack } from "@/lib/skills";
 import { guessName, joinList } from "@/lib/text";
 import type { Profile, ScoredJob } from "@/lib/types";
 
@@ -25,12 +27,16 @@ export function localLetter(profile: Profile, scored: ScoredJob): string {
   return lines.join("\n");
 }
 
-const MODELS: { id: string; generationConfig: Record<string, unknown>; skipAfterTimeout?: boolean }[] = [
+type GeminiModel = { id: string; generationConfig: Record<string, unknown>; skipAfterTimeout?: boolean };
+
+const FLASH_MODELS: GeminiModel[] = [
   { id: "gemini-3.8-flash", generationConfig: { thinkingConfig: { thinkingLevel: "low" } } },
   { id: "gemini-3.8-flash", generationConfig: {}, skipAfterTimeout: true },
   { id: "gemini-3.6-flash", generationConfig: {} },
   { id: "gemini-3.5-flash-lite", generationConfig: {} },
 ];
+
+const DOCUMENT_MODELS: GeminiModel[] = [{ id: "gemini-4-hydrogen", generationConfig: {} }, ...FLASH_MODELS];
 
 type GeminiPayload = {
   error?: { message?: string };
@@ -45,6 +51,29 @@ function overloaded(status: number, message: string): boolean {
   return status === 429 || status === 503 || /high demand|overloaded|try again later|resource exhausted|unavailable/i.test(message);
 }
 
+function tailorPlan(resume: string, scored: ScoredJob): { supported: string; gaps: string; duties: string } {
+  const head = `${scored.job.title}\n${scored.job.tags.join(" ")}`;
+  const posting = `${head}\n${scored.job.description}`;
+  const asked = SKILLS.filter((skill) => hasSkill(skillHaystack(skill, head, posting), skill));
+  const supported = asked.filter((skill) => hasSkill(resume, skill));
+  const gaps = asked.filter((skill) => !hasSkill(resume, skill)).slice(0, 8);
+  const known = new Set(resume.toLowerCase().split(/[^a-z0-9+#]+/).filter((word) => word.length > 4));
+  const duties = scored.job.description
+    .split(/[\n•]+|(?<=[.!?])\s+/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 40 && line.length < 180)
+    .filter((line) => {
+      const hits = line.toLowerCase().split(/[^a-z0-9+#]+/).filter((word) => word.length > 4 && known.has(word));
+      return hits.length >= 2;
+    })
+    .slice(0, 4);
+  return {
+    supported: supported.join(", "),
+    gaps: gaps.join(", "),
+    duties: duties.map((line) => `- ${line}`).join("\n"),
+  };
+}
+
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -55,16 +84,17 @@ async function geminiText(
   maxOutputTokens: number,
   emptyLabel: string,
   attachment?: { mimeType: string; data: string },
+  models: GeminiModel[] = FLASH_MODELS,
 ): Promise<{ text: string; model: string }> {
   const parts: { text?: string; inlineData?: { mimeType: string; data: string } }[] = [{ text: prompt }];
   if (attachment?.data) parts.push({ inlineData: { mimeType: attachment.mimeType, data: attachment.data } });
   let lastError = `Gemini did not return a ${emptyLabel}.`;
   let timedOut = false;
-  const demandWaits = [2_000, 6_000, 15_000];
-  for (const model of MODELS) {
+  for (const model of models) {
     if (timedOut && model.skipAfterTimeout) continue;
     let demandAttempt = 0;
     let status = 0;
+    const demandWaits = model.id === "gemini-4-hydrogen" ? [2_000] : [2_000, 6_000, 15_000];
     while (true) {
       let response: Response;
       try {
@@ -201,16 +231,31 @@ export async function geminiResumeDocument(
   const fileName = source?.fileName?.trim();
   const origin = fileName ? `The original file is ${fileName}.` : "The text below is the original resume.";
   const attached = source?.pdfBase64 ? " The attached PDF is that same file." : "";
-  const prompt = `Write a one-page resume aimed at the job below. Return only JSON with this shape:
+  const plan = tailorPlan(resume, scored);
+  const prompt = `Tailor this resume to one job. Return only JSON with this shape:
 {"name":"","headline":"","contacts":[],"summary":"","skills":[],"sections":[{"heading":"Experience","items":[{"title":"","org":"","when":"","bullets":[]}]}]}
+
+Do what a job-specific editor does:
+- Read each requirement below. Find the role and bullet in the resume that already prove it.
+- Rewrite that bullet so the requirement's own word sits beside the original task. Keep the employer, title, date, and result exactly as written.
+- Do not hang a skill on a job that never used it. Do not add a skill line that has no bullet behind it.
+- Put the job with the most supported requirements first. Inside it, put the rewritten bullets first. Keep every other bullet. Do not delete a job, a bullet, or a skill that is on the resume.
+- Summary is two sentences. The first names the target role and the supported requirements. The second names work the resume already describes.
+- skills starts with the supported requirements, in the order given. After those, list every other skill from the original resume. Add the match on top. Do not replace the skill list.
+- Leave every gap requirement out of the headline, summary, skills, and bullets.
+
+Supported requirements, in posting order:
+${plan.supported || "None. Do not borrow tools from the posting."}
+
+Gap requirements. Do not add these:
+${plan.gaps || "None."}
+
+Posting duties the resume already supports. Rewrite a real bullet so it states the duty:
+${plan.duties || "None."}
 
 Rules:
 - Use only facts from the original resume. Do not invent employers, titles, dates, metrics, degrees, tools, or achievements.
-- Write it so a hiring manager for this exact role would see the relevant work first. Use the posting's language only where the resume already supports it.
-- Start each bullet with the concrete work that is already described. Do not add results that are not written in the resume.
 - headline is the target role when the resume supports that kind of work. Otherwise use the person's own role.
-- summary is at most 3 sentences.
-- skills lists only strengths that appear in the resume, most relevant to the job first.
 - Put every email and every URL from the resume into contacts, including GitHub, LinkedIn, and portfolio links. Copy them exactly.
 - Use the heading Experience for main jobs.
 - Put projects, freelance, volunteer, and other extra work under the heading Additional Experiences. Do not use the heading Projects.
@@ -233,6 +278,7 @@ ${scored.job.description.slice(0, 2500)}`;
     8192,
     "resume",
     source?.pdfBase64 ? { mimeType: "application/pdf", data: source.pdfBase64 } : undefined,
+    DOCUMENT_MODELS,
   );
   return written.text;
 }

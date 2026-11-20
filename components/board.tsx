@@ -17,10 +17,13 @@ export function Board({
   onMore,
   total,
   filter,
+  source,
+  sources,
   minScore,
   tracked,
   hasResume,
   onFilter,
+  onSource,
   onMinScore,
   onRefresh,
   onOpen,
@@ -37,10 +40,13 @@ export function Board({
   onMore: () => void;
   total: number;
   filter: string;
+  source: string;
+  sources: { name: string; count: number }[];
   minScore: number;
   tracked: Record<string, Tracked>;
   hasResume: boolean;
   onFilter: (value: string) => void;
+  onSource: (value: string) => void;
   onMinScore: (value: number) => void;
   onRefresh: () => void;
   onOpen: (job: ScoredJob) => void;
@@ -107,6 +113,22 @@ export function Board({
           placeholder="Filter by title, company, or skill"
           className="field max-w-sm"
         />
+        <label className="sr-only" htmlFor="job-source">
+          Board
+        </label>
+        <select
+          id="job-source"
+          value={source}
+          onChange={(event) => onSource(event.target.value)}
+          className="field w-auto max-w-full rounded-full py-1.5 pr-8 text-sm"
+        >
+          <option value="">All boards</option>
+          {sources.map((item) => (
+            <option key={item.name} value={item.name}>
+              {item.name} ({item.count})
+            </option>
+          ))}
+        </select>
         {[
           [0, "All"],
           [45, "Promising"],
@@ -145,7 +167,9 @@ export function Board({
         </div>
       ) : jobs.length === 0 ? (
         <p className="rounded-3xl border border-dashed border-line px-4 py-10 text-center text-sm text-muted">
-          Nothing cleared that bar. Clear the filter or ask for all matches.
+          {source
+            ? `Nothing from ${source} cleared that bar.`
+            : "Nothing cleared that bar. Clear the filter or ask for all matches."}
         </p>
       ) : (
         <ul className="space-y-3">
