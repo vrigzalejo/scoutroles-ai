@@ -269,6 +269,25 @@ export function scoreJob(job: Job, profile: Profile): ScoredJob {
   };
 }
 
+export function scorePreparedResume(job: Job, profile: Profile, prepared: string): ScoredJob {
+  const base = scoreJob(job, profile);
+  const opening = prepared
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 8)
+    .join("\n");
+  const lead = base.matched.filter((skill) => hasSkill(opening, skill));
+  const reasons = lead.length
+    ? [`The document leads with ${joinList(lead.slice(0, 4))}.`, ...base.reasons]
+    : base.reasons;
+  return {
+    ...base,
+    score: Math.min(96, base.score + Math.min(12, lead.length * 3)),
+    reasons,
+  };
+}
+
 export function scoreJobs(jobs: Job[], profile: Profile): ScoredJob[] {
   return jobs
     .map((job) => scoreJob(job, profile))

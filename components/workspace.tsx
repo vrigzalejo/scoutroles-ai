@@ -8,7 +8,7 @@ import { Brief } from "@/components/brief";
 import { Drawer, type Review } from "@/components/drawer";
 import { Tracker } from "@/components/tracker";
 import { geminiLetter, geminiResumeDocument, geminiTailored, localLetter, localTailored } from "@/lib/letter";
-import { scoreJob, scoreJobs } from "@/lib/match";
+import { scoreJobs, scorePreparedResume } from "@/lib/match";
 import type { PassStatus } from "@/lib/pass";
 import { briefFromResume } from "@/lib/resume-brief";
 import {
@@ -172,6 +172,7 @@ export function Workspace() {
   const [runIndex, setRunIndex] = useState(0);
   const [resumeFile, setResumeFile] = useState<ResumeFile | null>(null);
   const [jobPdf, setJobPdf] = useState<{ id: string; file: ResumeFile; document: ResumeDocument | null } | null>(null);
+  const [prepared, setPrepared] = useState<Record<string, ScoredJob>>({});
   const [previewToken, setPreviewToken] = useState(0);
   const [pass, setPass] = useState<PassStatus | null>(null);
   const [passNote, setPassNote] = useState("");
@@ -306,35 +307,50 @@ export function Workspace() {
     });
   }, [scored, filter, minScore, activeSource]);
 
+  const resumeRating = useMemo(() => {
+    if (!review || jobPdf?.id !== review.id || !jobPdf.document) return null;
+    const live = scored.find((item) => item.job.id === review.id);
+    const job = live?.job ?? toScored(review).job;
+    return scorePreparedResume(job, profile, resumePlainText(jobPdf.document));
+  }, [review, jobPdf, scored, profile]);
+
   const shown = useMemo(() => {
     if (!review) return null;
     const live = scored.find((item) => item.job.id === review.id);
-    if (!live) return review;
+    const base = live
+      ? {
+          ...review,
+          title: live.job.title,
+          company: live.job.company,
+          location: live.job.location,
+          salary: live.job.salary,
+          url: live.job.url,
+          applyUrl: live.job.applyUrl,
+          description: live.job.description,
+          score: live.score,
+          matched: live.matched,
+          missing: live.missing,
+          reasons: live.reasons,
+        }
+      : review;
+    if (!resumeRating) return base;
     return {
-      ...review,
-      title: live.job.title,
-      company: live.job.company,
-      location: live.job.location,
-      salary: live.job.salary,
-      url: live.job.url,
-      applyUrl: live.job.applyUrl,
-      description: live.job.description,
-      score: live.score,
-      matched: live.matched,
-      missing: live.missing,
-      reasons: live.reasons,
+      ...base,
+      score: resumeRating.score,
+      matched: resumeRating.matched,
+      missing: resumeRating.missing,
+      reasons: resumeRating.reasons,
     };
-  }, [review, scored]);
+  }, [review, scored, resumeRating]);
 
-  const resumeRating = useMemo(() => {
-    if (!shown || jobPdf?.id !== shown.id || !jobPdf.document) return null;
-    const live = scored.find((item) => item.job.id === shown.id);
-    return scoreJob(live?.job ?? toScored(shown).job, {
-      ...profile,
-      resume: resumePlainText(jobPdf.document),
-      geminiKey: "",
+  useEffect(() => {
+    if (!resumeRating || !jobPdf?.document) return;
+    setPrepared((current) => {
+      const previous = current[jobPdf.id];
+      if (previous?.score === resumeRating.score) return current;
+      return { ...current, [jobPdf.id]: resumeRating };
     });
-  }, [shown, jobPdf, scored, profile]);
+  }, [resumeRating, jobPdf]);
 
   async function load(force = false): Promise<JobsPayload | null> {
     if (!pass?.active) {
@@ -602,7 +618,15 @@ export function Workspace() {
     };
     await saveJobResume(current.id, file, document);
     setJobPdf({ id: current.id, file, document });
-    persist({ ...current, tailored: resumePlainText(document) });
+    const rating = scorePreparedResume(toScored(current).job, profile, resumePlainText(document));
+    persist({
+      ...current,
+      score: rating.score,
+      matched: rating.matched,
+      missing: rating.missing,
+      reasons: rating.reasons,
+      tailored: resumePlainText(document),
+    });
   }
 
   async function createResumePdf(current: Review) {
@@ -823,7 +847,12 @@ export function Workspace() {
             sampleMode={sampleMode}
             reports={payload?.sources ?? []}
             fetchedAt={payload?.fetchedAt ?? ""}
-            jobs={visible.slice(0, limit)}
+            jobs={visible.slice(0, limit).map((item) => {
+              const next = prepared[item.job.id];
+              return next
+                ? { ...item, score: next.score, matched: next.matched, missing: next.missing, reasons: next.reasons }
+                : item;
+            })}
             hasMore={visible.length > limit}
             onMore={() => setLimit((count) => count + 24)}
             total={visible.length}
@@ -857,6 +886,7 @@ export function Workspace() {
           resumePdf={jobPdf?.id === shown.id ? jobPdf.file : null}
           resumeDocument={jobPdf?.id === shown.id ? jobPdf.document : null}
           resumeRating={resumeRating}
+          originalScore={scored.find((item) => item.job.id === shown.id)?.score ?? shown.score}
           onClose={() => setReview(null)}
           onLetter={(letter) => setReview({ ...shown, letter })}
           onNote={(note) => setReview({ ...shown, note })}

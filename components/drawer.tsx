@@ -51,6 +51,7 @@ export function Drawer({
   resumePdf,
   resumeDocument,
   resumeRating,
+  originalScore,
 }: {
   review: Review;
   busy: boolean;
@@ -69,6 +70,7 @@ export function Drawer({
   resumePdf: ResumeFile | null;
   resumeDocument: ResumeDocument | null;
   resumeRating: ScoredJob | null;
+  originalScore: number;
 }) {
   const [copied, setCopied] = useState(false);
   const [copiedResume, setCopiedResume] = useState(false);
@@ -121,6 +123,9 @@ export function Drawer({
               {review.score}
             </p>
             <p className="mt-1 text-xs uppercase tracking-[0.16em] text-muted">fit</p>
+            {resumeRating && originalScore !== review.score ? (
+              <p className="mt-1 text-[10px] text-muted">was {originalScore} on the original resume</p>
+            ) : null}
           </div>
           <Button tone="ghost" onClick={onClose}>
             <Icon name="close" />
@@ -255,19 +260,6 @@ export function Drawer({
             </p>
             {resumeRating ? (
               <div className="mb-2 space-y-1 text-sm text-ink">
-                <p>
-                  <span
-                    className={`font-serif text-3xl leading-none ${
-                      resumeRating.score >= 70 ? "text-pine" : resumeRating.score >= 45 ? "text-clay" : "text-muted"
-                    }`}
-                  >
-                    {resumeRating.score}
-                  </span>
-                  <span className="ml-2 text-muted">
-                    fit on this document
-                    {review.score !== resumeRating.score ? ` · original resume ${review.score}` : ""}
-                  </span>
-                </p>
                 {resumeRating.matched.length ? (
                   <p className="text-xs text-pine">Listed first: {resumeRating.matched.slice(0, 8).join(", ")}</p>
                 ) : null}
