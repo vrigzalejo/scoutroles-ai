@@ -7,7 +7,7 @@ import { resumeKind } from "@/lib/resume-file";
 import { timeAgo } from "@/lib/text";
 import type { ResumeDocument } from "@/lib/resume-pdf";
 import type { ResumeFile } from "@/lib/resume-file";
-import { STATUS_LABEL, type TrackStatus } from "@/lib/types";
+import { STATUS_LABEL, type ScoredJob, type TrackStatus } from "@/lib/types";
 
 export type Review = {
   id: string;
@@ -50,6 +50,7 @@ export function Drawer({
   sourceName,
   resumePdf,
   resumeDocument,
+  resumeRating,
 }: {
   review: Review;
   busy: boolean;
@@ -67,6 +68,7 @@ export function Drawer({
   sourceName: string;
   resumePdf: ResumeFile | null;
   resumeDocument: ResumeDocument | null;
+  resumeRating: ScoredJob | null;
 }) {
   const [copied, setCopied] = useState(false);
   const [copiedResume, setCopiedResume] = useState(false);
@@ -248,9 +250,34 @@ export function Drawer({
             </div>
             <p className="mb-2 text-xs text-muted">
               {hasGemini
-                ? `Gemini writes a Word document for this posting from ${sourceName || "your resume"}. Extra work is listed under Additional Experiences.`
+                ? `Matching skills from ${sourceName || "your resume"} are listed first. Every other skill on the resume stays under them. Bullets are rewritten only where that work is already there.`
                 : "Gemini writes this document from your resume. Sign in, or add a Gemini key, before creating it."}
             </p>
+            {resumeRating ? (
+              <div className="mb-2 space-y-1 text-sm text-ink">
+                <p>
+                  <span
+                    className={`font-serif text-3xl leading-none ${
+                      resumeRating.score >= 70 ? "text-pine" : resumeRating.score >= 45 ? "text-clay" : "text-muted"
+                    }`}
+                  >
+                    {resumeRating.score}
+                  </span>
+                  <span className="ml-2 text-muted">
+                    fit on this document
+                    {review.score !== resumeRating.score ? ` · original resume ${review.score}` : ""}
+                  </span>
+                </p>
+                {resumeRating.matched.length ? (
+                  <p className="text-xs text-pine">Listed first: {resumeRating.matched.slice(0, 8).join(", ")}</p>
+                ) : null}
+                {resumeRating.missing.length ? (
+                  <p className="text-xs text-muted">
+                    This posting also asks for {resumeRating.missing.slice(0, 6).join(", ")}. Those stay off the document because the resume never mentions them.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             {error.includes("document") ? <p className="mb-2 text-sm text-clay">{error}</p> : null}
             {resumeDocument ? (
               <div className="max-h-[32rem] overflow-auto rounded-2xl border border-line bg-white">

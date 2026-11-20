@@ -1,4 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
+import { hasSkill } from "@/lib/match";
+import { SKILLS } from "@/lib/skills";
 
 export type ResumeItem = {
   title: string;
@@ -100,6 +102,62 @@ export function keepContacts(doc: ResumeDocument, source: string): ResumeDocumen
     contacts.push(value);
   }
   return { ...doc, contacts: contacts.slice(0, 8) };
+}
+
+function uniqueSkills(skills: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const skill of skills) {
+    const value = skill.replace(/\s+/g, " ").trim();
+    const key = value.toLowerCase();
+    if (!value || value.length > 40 || seen.has(key)) continue;
+    seen.add(key);
+    result.push(value);
+  }
+  return result;
+}
+
+function splitSkills(line: string): string[] {
+  return line
+    .replace(/^([•●▪*-]|\d+[.)])\s+/, "")
+    .split(/[,|•]/)
+    .map((part) => part.replace(/\s+/g, " ").trim())
+    .filter((part) => part.length > 1 && part.length <= 40);
+}
+
+function skillsSection(source: string): string[] {
+  const found: string[] = [];
+  let reading = false;
+  for (const raw of source.replace(/\r/g, "").split("\n")) {
+    const line = raw.trim();
+    if (/^skills\b/i.test(line) && line.length < 80) {
+      reading = true;
+      const inline = line.replace(/^skills\b[:\s]*/i, "");
+      if (inline) found.push(...splitSkills(inline));
+      continue;
+    }
+    if (!reading) continue;
+    if (!line) {
+      if (found.length) break;
+      continue;
+    }
+    if (/^(experience|education|projects|employment|summary|profile|work experience)\b/i.test(line)) break;
+    if (line.length > 80 && !line.includes(",")) break;
+    found.push(...splitSkills(line));
+  }
+  return found;
+}
+
+export function keepResumeSkills(doc: ResumeDocument, source: string): ResumeDocument {
+  const listed = uniqueSkills(skillsSection(source));
+  const original = listed.length ? listed : SKILLS.filter((skill) => hasSkill(source, skill));
+  const known = new Set(original.map((skill) => skill.toLowerCase()));
+  const first = uniqueSkills(
+    doc.skills.filter((skill) => (listed.length ? known.has(skill.toLowerCase()) : hasSkill(source, skill))),
+  );
+  const placed = new Set(first.map((skill) => skill.toLowerCase()));
+  const rest = original.filter((skill) => !placed.has(skill.toLowerCase()));
+  return { ...doc, skills: [...first, ...rest].slice(0, 32) };
 }
 
 function bulletText(line: string): string {
@@ -223,13 +281,18 @@ export function resumePlainText(doc: ResumeDocument): string {
   return lines.filter((line) => line !== undefined).join("\n").trim();
 }
 
-export function resumePdfName(doc: ResumeDocument): string {
-  const base = [doc.name, doc.headline]
-    .filter(Boolean)
-    .join(" ")
-    .replace(/[^a-z0-9]+/gi, "-")
-    .replace(/^-|-$/g, "");
-  return `${(base || "resume").slice(0, 80)}.docx`;
+export function resumePdfName(job: { title: string; company: string; publishedAt?: string }): string {
+  const parsed = job.publishedAt ? new Date(job.publishedAt) : new Date();
+  const day = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  const date = day.toISOString().slice(0, 10);
+  const slug = (value: string) =>
+    value
+      .normalize("NFKD")
+      .replace(/[^a-z0-9]+/gi, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 48);
+  const base = [slug(job.title), slug(job.company), date].filter(Boolean).join("-");
+  return `${base || `resume-${date}`}.docx`;
 }
 
 function latin(value: string): string {

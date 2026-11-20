@@ -3,7 +3,7 @@ import { geminiResumeDocument } from "@/lib/letter";
 import { logProcess } from "@/lib/log";
 import { currentPass, geminiConfigured } from "@/lib/pass-http";
 import { passIsActive } from "@/lib/pass-store";
-import { keepContacts, parseResumeDocument } from "@/lib/resume-pdf";
+import { keepContacts, keepResumeSkills, parseResumeDocument } from "@/lib/resume-pdf";
 import type { Job, Profile, ScoredJob } from "@/lib/types";
 
 type ResumeDocBody = {
@@ -62,6 +62,8 @@ export async function POST(request: Request) {
       : "";
 
   try {
+    const scored = scoredFrom(job);
+    scored.matched = (body.skills ?? []).filter((skill): skill is string => typeof skill === "string").slice(0, 12);
     const raw = await geminiResumeDocument(
       process.env.GEMINI_API_KEY || "",
       {
@@ -72,13 +74,16 @@ export async function POST(request: Request) {
         resume: profile.resume,
         geminiKey: "",
       },
-      scoredFrom(job),
+      scored,
       { text: profile.resume, fileName: body?.fileName, pdfBase64: pdf || undefined },
     );
     const parsed = parseResumeDocument(raw);
     if (!parsed) throw new Error("Gemini did not return a resume document.");
-    const document = keepContacts(
-      { ...parsed, name: parsed.name || profile.name || "Resume", preparedFor: `${job.title} at ${job.company}` },
+    const document = keepResumeSkills(
+      keepContacts(
+        { ...parsed, name: parsed.name || profile.name || "Resume", preparedFor: `${job.title} at ${job.company}` },
+        profile.resume,
+      ),
       profile.resume,
     );
     logProcess("document", { step: "generate", result: "ok", source: "gemini" });

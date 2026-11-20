@@ -8,7 +8,7 @@ import { Brief } from "@/components/brief";
 import { Drawer, type Review } from "@/components/drawer";
 import { Tracker } from "@/components/tracker";
 import { geminiLetter, geminiResumeDocument, geminiTailored, localLetter, localTailored } from "@/lib/letter";
-import { scoreJobs } from "@/lib/match";
+import { scoreJob, scoreJobs } from "@/lib/match";
 import type { PassStatus } from "@/lib/pass";
 import { briefFromResume } from "@/lib/resume-brief";
 import {
@@ -26,6 +26,7 @@ import {
 import { renderResumeDocx } from "@/lib/resume-docx";
 import {
   keepContacts,
+  keepResumeSkills,
   parseResumeDocument,
   resumePdfName,
   resumePlainText,
@@ -157,6 +158,7 @@ export function Workspace() {
   const [reading, setReading] = useState(false);
   const [fileError, setFileError] = useState("");
   const [filter, setFilter] = useState("");
+  const [source, setSource] = useState("");
   const [minScore, setMinScore] = useState(0);
   const [limit, setLimit] = useState(24);
   const [review, setReview] = useState<Review | null>(null);
@@ -283,15 +285,26 @@ export function Workspace() {
     [jobs, profile],
   );
 
+  const sources = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of scored) counts.set(item.job.source, (counts.get(item.job.source) ?? 0) + 1);
+    return [...counts.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }, [scored]);
+
+  const activeSource = sources.some((item) => item.name === source) ? source : "";
+
   const visible = useMemo(() => {
     const query = filter.trim().toLowerCase();
     return scored.filter((item) => {
+      if (activeSource && item.job.source !== activeSource) return false;
       if (item.score < minScore) return false;
       if (!query) return true;
       const blob = `${item.job.title} ${item.job.company} ${item.job.location} ${item.job.tags.join(" ")} ${item.matched.join(" ")}`.toLowerCase();
       return blob.includes(query);
     });
-  }, [scored, filter, minScore]);
+  }, [scored, filter, minScore, activeSource]);
 
   const shown = useMemo(() => {
     if (!review) return null;
@@ -312,6 +325,16 @@ export function Workspace() {
       reasons: live.reasons,
     };
   }, [review, scored]);
+
+  const resumeRating = useMemo(() => {
+    if (!shown || jobPdf?.id !== shown.id || !jobPdf.document) return null;
+    const live = scored.find((item) => item.job.id === shown.id);
+    return scoreJob(live?.job ?? toScored(shown).job, {
+      ...profile,
+      resume: resumePlainText(jobPdf.document),
+      geminiKey: "",
+    });
+  }, [shown, jobPdf, scored, profile]);
 
   async function load(force = false): Promise<JobsPayload | null> {
     if (!pass?.active) {
@@ -569,7 +592,11 @@ export function Workspace() {
   async function storeResumePdf(current: Review, document: ResumeDocument) {
     const bytes = new Uint8Array(await renderResumeDocx(document));
     const file = {
-      name: resumePdfName(document),
+      name: resumePdfName({
+        title: current.title,
+        company: current.company,
+        publishedAt: current.publishedAt,
+      }),
       type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       bytes: bytes.buffer,
     };
@@ -628,8 +655,11 @@ export function Workspace() {
       if (!parsed) throw new Error("Gemini did not return a resume document.");
       await storeResumePdf(
         current,
-        keepContacts(
-          { ...parsed, name: parsed.name || profile.name, preparedFor: `${current.title} at ${current.company}` },
+        keepResumeSkills(
+          keepContacts(
+            { ...parsed, name: parsed.name || profile.name, preparedFor: `${current.title} at ${current.company}` },
+            source.text,
+          ),
           source.text,
         ),
       );
@@ -796,12 +826,15 @@ export function Workspace() {
             jobs={visible.slice(0, limit)}
             hasMore={visible.length > limit}
             onMore={() => setLimit((count) => count + 24)}
-            total={scored.length}
+            total={visible.length}
             filter={filter}
+            source={activeSource}
+            sources={sources}
             minScore={minScore}
             tracked={tracker}
             hasResume={profile.resume.trim().length > 40}
             onFilter={setFilter}
+            onSource={setSource}
             onMinScore={setMinScore}
             onRefresh={() => void load(true)}
             onOpen={(item) => {
@@ -823,6 +856,7 @@ export function Workspace() {
           sourceName={resumeFile?.name ?? ""}
           resumePdf={jobPdf?.id === shown.id ? jobPdf.file : null}
           resumeDocument={jobPdf?.id === shown.id ? jobPdf.document : null}
+          resumeRating={resumeRating}
           onClose={() => setReview(null)}
           onLetter={(letter) => setReview({ ...shown, letter })}
           onNote={(note) => setReview({ ...shown, note })}
