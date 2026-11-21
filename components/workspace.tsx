@@ -5,6 +5,7 @@ import { Autopilot } from "@/components/autopilot";
 import { Icon } from "@/components/icon";
 import { Board } from "@/components/board";
 import { Brief } from "@/components/brief";
+import { PastePost } from "@/components/paste-post";
 import { Drawer, type Review } from "@/components/drawer";
 import { Tracker } from "@/components/tracker";
 import { geminiLetter, geminiResumeDocument, geminiTailored, localLetter, localTailored } from "@/lib/letter";
@@ -861,7 +862,22 @@ export function Workspace() {
           onMinFit={setMinFit}
           onBatch={setBatch}
         />
-        <div className="min-w-0 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
+        <div className="min-w-0 space-y-4 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
+        <PastePost
+          profile={profile}
+          saved={Object.values(tracker)
+            .filter((entry) => entry.source === "Pasted")
+            .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))}
+          onOpen={(item) => {
+            setLetterError("");
+            saveScored(item);
+            setReview(reviewFromScored(item, getTracker()[item.job.id]));
+          }}
+          onOpenSaved={(entry) => {
+            setLetterError("");
+            setReview(reviewFromTracked(entry));
+          }}
+        />
         {view === "tracker" ? (
           <Tracker
             entries={Object.values(tracker)}

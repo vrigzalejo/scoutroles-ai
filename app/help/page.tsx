@@ -23,6 +23,9 @@ export default function HelpPage() {
         <p>Press Rank open roles. ScoutRoles reads public job feeds and scores each post against the words in your resume. A higher score means more of the posting already shows up in your resume.</p>
         <p>Open a role to see what matched, what is missing, and a link back to the original listing.</p>
       </InfoSection>
+      <InfoSection title="Paste a job post">
+        <p>Paste a posting you copied from a company page. The title and company fill in when they are on the first lines. If they are not, type them from the post. Open this post scores it against your resume, saves it, and shows the posting at the top of the role. Saved posts and the Tracker both have a way back to that same posting.</p>
+      </InfoSection>
       <InfoSection title="Write a letter">
         <p>Inside a role, draft a letter from the resume and that posting. Facts stay as they are written in the resume. The draft does not add employers, titles, dates, or numbers that are not already there. The letter button says Queued letter while it waits, then Writing letter while Gemini works. This page keeps checking until it finishes.</p>
       </InfoSection>

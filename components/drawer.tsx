@@ -33,6 +33,20 @@ export type Review = {
 
 const STATUSES: TrackStatus[] = ["saved", "applied", "interview", "offer", "passed"];
 
+function Posting({ text }: { text: string }) {
+  if (!text.trim()) {
+    return <p className="text-sm text-muted">The original description is not in this tracker entry.</p>;
+  }
+  return (
+    <div>
+      <p className="label">Posting</p>
+      <div className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-2xl bg-paper px-3 py-3 text-sm leading-relaxed text-ink">
+        {text}
+      </div>
+    </div>
+  );
+}
+
 function actionLabel(kind: "letter" | "document", active: boolean, phase: string, idle: string) {
   if (!active) return idle;
   const noun = kind === "letter" ? "letter" : "document";
@@ -160,21 +174,29 @@ export function Drawer({
               {review.publishedAt ? ` · ${timeAgo(review.publishedAt)}` : ""}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <a href={review.url} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 rounded-full bg-pine px-3 py-1.5 text-sm font-medium text-paper">
-                <Icon name="external" />
-                Open listing
-              </a>
-              {review.applyUrl !== review.url ? (
+              {review.url.startsWith("http") ? (
+                <a href={review.url} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 rounded-full bg-pine px-3 py-1.5 text-sm font-medium text-paper">
+                  <Icon name="external" />
+                  Open listing
+                </a>
+              ) : null}
+              {review.applyUrl.startsWith("http") && review.applyUrl !== review.url ? (
                 <a href={review.applyUrl} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-sm">
                   <Icon name="external" />
                   Company form
                 </a>
               ) : null}
-              <a href={review.sourceHome} target="_blank" rel="noopener" className="self-center text-xs text-muted hover:text-ink">
-                via {review.source}
-              </a>
+              {review.sourceHome.startsWith("http") ? (
+                <a href={review.sourceHome} target="_blank" rel="noopener" className="self-center text-xs text-muted hover:text-ink">
+                  via {review.source}
+                </a>
+              ) : (
+                <span className="self-center text-xs text-muted">{review.source}</span>
+              )}
             </div>
           </div>
+
+          {review.source === "Pasted" ? <Posting text={review.description} /> : null}
 
           <ul className="space-y-1 text-sm leading-relaxed text-ink">
             {review.reasons.map((reason) => (
@@ -215,16 +237,7 @@ export function Drawer({
             </div>
           ) : null}
 
-          {review.description ? (
-            <div>
-              <p className="label">Posting</p>
-              <div className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-2xl bg-paper px-3 py-3 text-sm leading-relaxed text-ink">
-                {review.description}
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-muted">The original description is not in this tracker entry.</p>
-          )}
+          {review.source === "Pasted" ? null : <Posting text={review.description} />}
 
           <div>
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
