@@ -24,7 +24,7 @@ export default function HelpPage() {
         <p>Open a role to see what matched, what is missing, and a link back to the original listing.</p>
       </InfoSection>
       <InfoSection title="Write a letter">
-        <p>Inside a role, draft a letter from the resume and that posting. Facts stay as they are written in the resume. The draft does not add employers, titles, dates, or numbers that are not already there.</p>
+        <p>Inside a role, draft a letter from the resume and that posting. Facts stay as they are written in the resume. The draft does not add employers, titles, dates, or numbers that are not already there. The button says Queued while it waits, then Writing while Gemini works. This page keeps checking until it finishes.</p>
       </InfoSection>
       <InfoSection title="Generate a document">
         <p>Generate document asks Gemini for a one-page resume aimed at that role. It is saved only when Gemini returns one. You can download the Word file and attach it yourself.</p>

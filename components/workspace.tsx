@@ -163,6 +163,7 @@ export function Workspace() {
   const [limit, setLimit] = useState(24);
   const [review, setReview] = useState<Review | null>(null);
   const [busy, setBusy] = useState(false);
+  const [draftWait, setDraftWait] = useState("");
   const [letterError, setLetterError] = useState("");
   const [minFit, setMinFit] = useState(70);
   const [batch, setBatch] = useState(5);
@@ -629,6 +630,26 @@ export function Workspace() {
     });
   }
 
+  async function waitDraft(id: string): Promise<{ text?: string; document?: ResumeDocument | null; error?: string; status?: string }> {
+    const started = Date.now();
+    while (Date.now() - started < 5 * 60 * 1000) {
+      const response = await fetch(`/api/drafts/${id}`, { cache: "no-store" });
+      const data = (await response.json().catch(() => null)) as {
+        status?: string;
+        text?: string;
+        document?: ResumeDocument | null;
+        error?: string;
+      } | null;
+      if (!response.ok) throw new Error(data?.error || "The draft could not be read.");
+      if (data?.status === "queued") setDraftWait("Queued…");
+      if (data?.status === "running") setDraftWait("Writing…");
+      if (data?.status === "failed") throw new Error(data.error || "The draft failed.");
+      if (data?.status === "done") return data;
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+    throw new Error("This draft is still queued. Press the button again to keep waiting.");
+  }
+
   async function createResumePdf(current: Review) {
     setBusy(true);
     setLetterError("");
@@ -641,6 +662,7 @@ export function Workspace() {
         return;
       }
       if (included) {
+        setDraftWait("Queued…");
         const response = await fetch("/api/resume-doc", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -666,12 +688,11 @@ export function Workspace() {
             },
           }),
         });
-        const data = (await response.json().catch(() => null)) as {
-          document?: ResumeDocument;
-          error?: string;
-        } | null;
-        if (!response.ok || !data?.document) throw new Error(data?.error || "Gemini did not write the document.");
-        await storeResumePdf(current, data.document);
+        const data = (await response.json().catch(() => null)) as { id?: string; error?: string } | null;
+        if (!response.ok || !data?.id) throw new Error(data?.error || "Gemini did not write the document.");
+        const ready = await waitDraft(data.id);
+        if (!ready.document) throw new Error("Gemini did not write the document.");
+        await storeResumePdf(current, ready.document);
         return;
       }
       const raw = await geminiResumeDocument(key, { ...profile, resume: source.text }, toScored(current), source);
@@ -689,9 +710,10 @@ export function Workspace() {
       );
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "Gemini did not write the document.";
-      setLetterError(/document/i.test(message) ? message : `${message} The document was not created.`);
+      setLetterError(/document|still queued/i.test(message) ? message : `${message} The document was not created.`);
     } finally {
       setBusy(false);
+      setDraftWait("");
     }
   }
 
@@ -718,6 +740,7 @@ export function Workspace() {
         : localLetter(profile, toScored(current));
     try {
       if (included) {
+        setDraftWait("Queued…");
         const response = await fetch("/api/letter", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -743,9 +766,11 @@ export function Workspace() {
             },
           }),
         });
-        const data = (await response.json().catch(() => null)) as { text?: string; error?: string } | null;
-        if (!response.ok || !data?.text) throw new Error(data?.error || `Could not write the ${noun}.`);
-        persist(kind === "resume" ? { ...current, tailored: data.text } : { ...current, letter: data.text });
+        const data = (await response.json().catch(() => null)) as { id?: string; error?: string } | null;
+        if (!response.ok || !data?.id) throw new Error(data?.error || `Could not write the ${noun}.`);
+        const ready = await waitDraft(data.id);
+        if (!ready.text?.trim()) throw new Error(`Could not write the ${noun}.`);
+        persist(kind === "resume" ? { ...current, tailored: ready.text } : { ...current, letter: ready.text });
         return;
       }
       const written = await (kind === "resume"
@@ -753,11 +778,14 @@ export function Workspace() {
         : geminiLetter(key, profile, toScored(current)));
       persist(kind === "resume" ? { ...current, tailored: written.text } : { ...current, letter: written.text });
     } catch (cause) {
-      persist(kind === "resume" ? { ...current, tailored: plain() } : { ...current, letter: plain() });
       const message = cause instanceof Error ? cause.message : `Gemini did not write a ${noun}.`;
-      setLetterError(`${message} The plain ${noun} is in the box.`);
+      if (!/still queued/i.test(message)) {
+        persist(kind === "resume" ? { ...current, tailored: plain() } : { ...current, letter: plain() });
+      }
+      setLetterError(/still queued/i.test(message) ? message : `${message} The plain ${noun} is in the box.`);
     } finally {
       setBusy(false);
+      setDraftWait("");
     }
   }
 
@@ -880,6 +908,7 @@ export function Workspace() {
         <Drawer
           review={shown}
           busy={busy}
+          busyLabel={draftWait}
           error={letterError}
           hasGemini={Boolean(profile.geminiKey.trim() || (pass?.active && pass.gemini))}
           sourceName={resumeFile?.name ?? ""}

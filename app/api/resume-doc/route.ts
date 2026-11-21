@@ -1,10 +1,11 @@
 import { connection } from "next/server";
-import { geminiResumeDocument } from "@/lib/letter";
+import { enqueueDraft, publishDraft } from "@/lib/drafts";
 import { logProcess } from "@/lib/log";
 import { currentPass, geminiConfigured } from "@/lib/pass-http";
 import { passIsActive } from "@/lib/pass-store";
-import { keepContacts, keepResumeSkills, parseResumeDocument } from "@/lib/resume-pdf";
-import type { Job, Profile, ScoredJob } from "@/lib/types";
+import type { Job, Profile } from "@/lib/types";
+
+export const maxDuration = 300;
 
 type ResumeDocBody = {
   profile?: Partial<Profile>;
@@ -13,30 +14,6 @@ type ResumeDocBody = {
   fileName?: string;
   file?: { mimeType?: string; data?: string };
 };
-
-function scoredFrom(job: Partial<Job>): ScoredJob {
-  return {
-    job: {
-      id: job.id || "resume",
-      title: job.title || "",
-      company: job.company || "",
-      location: job.location || "",
-      remote: true,
-      salary: job.salary || "",
-      description: job.description || "",
-      tags: [],
-      url: job.url || "",
-      applyUrl: job.applyUrl || job.url || "",
-      source: "Sample",
-      sourceHome: "",
-      publishedAt: job.publishedAt || "",
-    },
-    score: 0,
-    matched: [],
-    missing: [],
-    reasons: [],
-  };
-}
 
 export async function POST(request: Request) {
   await connection();
@@ -62,35 +39,39 @@ export async function POST(request: Request) {
       : "";
 
   try {
-    const scored = scoredFrom(job);
-    scored.matched = (body?.skills ?? []).filter((skill): skill is string => typeof skill === "string").slice(0, 12);
-    const raw = await geminiResumeDocument(
-      process.env.GEMINI_API_KEY || "",
-      {
-        name: profile.name || "",
-        roles: profile.roles || "",
-        location: profile.location || "",
-        remoteOnly: true,
-        resume: profile.resume,
-        geminiKey: "",
+    const draft = await enqueueDraft({
+      passId: pass.id,
+      kind: "document",
+      payload: {
+        profile: {
+          name: profile.name || "",
+          roles: profile.roles || "",
+          location: profile.location || "",
+          resume: profile.resume,
+        },
+        job: {
+          id: job.id,
+          title: job.title,
+          company: job.company,
+          location: job.location,
+          description: job.description,
+          url: job.url,
+          applyUrl: job.applyUrl,
+          salary: job.salary,
+          publishedAt: job.publishedAt,
+        },
+        skills: (body?.skills ?? []).filter((skill): skill is string => typeof skill === "string").slice(0, 12),
+        fileName: body?.fileName,
+        pdfBase64: pdf || undefined,
       },
-      scored,
-      { text: profile.resume, fileName: body?.fileName, pdfBase64: pdf || undefined },
-    );
-    const parsed = parseResumeDocument(raw);
-    if (!parsed) throw new Error("Gemini did not return a resume document.");
-    const document = keepResumeSkills(
-      keepContacts(
-        { ...parsed, name: parsed.name || profile.name || "Resume", preparedFor: `${job.title} at ${job.company}` },
-        profile.resume,
-      ),
-      profile.resume,
-    );
-    logProcess("document", { step: "generate", result: "ok", source: "gemini" });
-    return Response.json({ document, source: "gemini" });
+    });
+    await publishDraft(draft.id);
+    logProcess("document", { step: "generate", result: "queued" });
+    return Response.json(draft);
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "Gemini did not write the document.";
-    logProcess("document", { step: "generate", result: "failed", message });
-    return Response.json({ error: message }, { status: 502 });
+    const status = /already in line/i.test(message) ? 429 : 502;
+    logProcess("document", { step: "generate", result: "failed", status, message });
+    return Response.json({ error: message }, { status });
   }
 }
