@@ -36,6 +36,7 @@ const STATUSES: TrackStatus[] = ["saved", "applied", "interview", "offer", "pass
 export function Drawer({
   review,
   busy,
+  busyLabel,
   error,
   onClose,
   onLetter,
@@ -55,6 +56,7 @@ export function Drawer({
 }: {
   review: Review;
   busy: boolean;
+  busyLabel?: string;
   error: string;
   onClose: () => void;
   onLetter: (value: string) => void;
@@ -219,10 +221,13 @@ export function Drawer({
                 </Button>
                 <Button tone="primary" className="px-3 py-1.5" onClick={onGemini} disabled={busy || !hasGemini}>
                   <Icon name="spark" />
-                  {busy ? "Writing…" : "Gemini draft"}
+                  {busy ? busyLabel || "Writing…" : "Gemini draft"}
                 </Button>
               </div>
             </div>
+            {busy && busyLabel ? (
+              <p className="mb-2 text-xs text-pine">{busyLabel === "Queued…" ? "In the queue. Writing starts when the draft ahead finishes." : "Writing now."}</p>
+            ) : null}
             {!hasGemini ? (
               <p className="mb-2 text-xs text-muted">
                 Start a free account for included letters. The plain draft works after you sign in.
@@ -250,9 +255,12 @@ export function Drawer({
               <p className="label mb-0">Resume for this role</p>
               <Button tone="primary" className="px-3 py-1.5" onClick={onCreatePdf} disabled={busy}>
                 <Icon name="document" />
-                {busy ? "Writing the document…" : "Generate document"}
+                {busy ? busyLabel || "Writing the document…" : "Generate document"}
               </Button>
             </div>
+            {busy && busyLabel ? (
+              <p className="mb-2 text-xs text-pine">{busyLabel === "Queued…" ? "In the queue. Writing starts when the draft ahead finishes." : "Writing now."}</p>
+            ) : null}
             <p className="mb-2 text-xs text-muted">
               {hasGemini
                 ? `Matching skills from ${sourceName || "your resume"} are listed first. Every other skill on the resume stays under them. Bullets are rewritten only where that work is already there.`

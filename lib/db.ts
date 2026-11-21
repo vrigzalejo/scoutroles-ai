@@ -87,6 +87,25 @@ async function ensure() {
         pass_id uuid PRIMARY KEY REFERENCES passes (id) ON DELETE CASCADE,
         data jsonb NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS drafts (
+        id uuid PRIMARY KEY,
+        pass_id uuid NOT NULL REFERENCES passes (id) ON DELETE CASCADE,
+        kind text NOT NULL,
+        status text NOT NULL,
+        payload jsonb NOT NULL,
+        result jsonb,
+        error text NOT NULL DEFAULT '',
+        created_at timestamptz NOT NULL,
+        started_at timestamptz,
+        finished_at timestamptz
+      );
+      CREATE INDEX IF NOT EXISTS drafts_queue_idx ON drafts (status, created_at);
+      CREATE TABLE IF NOT EXISTS draft_lane (
+        id integer PRIMARY KEY,
+        locked_at timestamptz,
+        owner text
+      );
+      INSERT INTO draft_lane (id) VALUES (1) ON CONFLICT DO NOTHING;
     `);
     logProcess("database", { step: "schema", result: "ok", database: databaseHost() });
   } catch (cause) {

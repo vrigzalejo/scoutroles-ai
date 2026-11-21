@@ -22,6 +22,7 @@ export default function PrivacyPage() {
       </InfoSection>
       <InfoSection title="Letters and documents">
         <p>When you draft a letter or generate a document, the resume text and that job posting are sent to Google Gemini. That happens only when you ask. Ranking roles does not call Gemini.</p>
+        <p>The draft waits in a short queue. The resume text for that draft stays in the database only until the draft finishes or fails, then it is removed. The Word file is still built in this browser.</p>
       </InfoSection>
       <InfoSection title="Job listings">
         <p>Roles come from public job feeds. Opening a listing sends you to the site that published it. ScoutRoles does not sign in there, fill its forms, or submit an application.</p>
