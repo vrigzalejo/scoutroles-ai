@@ -163,6 +163,7 @@ export function Workspace() {
   const [limit, setLimit] = useState(24);
   const [review, setReview] = useState<Review | null>(null);
   const [busy, setBusy] = useState(false);
+  const [draftKind, setDraftKind] = useState<"" | "letter" | "document">("");
   const [draftWait, setDraftWait] = useState("");
   const [letterError, setLetterError] = useState("");
   const [minFit, setMinFit] = useState(70);
@@ -652,6 +653,7 @@ export function Workspace() {
 
   async function createResumePdf(current: Review) {
     setBusy(true);
+    setDraftKind("document");
     setLetterError("");
     try {
       const source = await textFromOriginal();
@@ -713,6 +715,7 @@ export function Workspace() {
       setLetterError(/document|still queued/i.test(message) ? message : `${message} The document was not created.`);
     } finally {
       setBusy(false);
+      setDraftKind("");
       setDraftWait("");
     }
   }
@@ -732,6 +735,7 @@ export function Workspace() {
       return;
     }
     setBusy(true);
+    setDraftKind("letter");
     setLetterError("");
     const source = kind === "resume" ? await textFromOriginal() : { text: profile.resume };
     const plain = () =>
@@ -785,6 +789,7 @@ export function Workspace() {
       setLetterError(/still queued/i.test(message) ? message : `${message} The plain ${noun} is in the box.`);
     } finally {
       setBusy(false);
+      setDraftKind("");
       setDraftWait("");
     }
   }
@@ -908,6 +913,7 @@ export function Workspace() {
         <Drawer
           review={shown}
           busy={busy}
+          busyKind={draftKind}
           busyLabel={draftWait}
           error={letterError}
           hasGemini={Boolean(profile.geminiKey.trim() || (pass?.active && pass.gemini))}

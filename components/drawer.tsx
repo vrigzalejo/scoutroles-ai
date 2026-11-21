@@ -33,9 +33,23 @@ export type Review = {
 
 const STATUSES: TrackStatus[] = ["saved", "applied", "interview", "offer", "passed"];
 
+function actionLabel(kind: "letter" | "document", active: boolean, phase: string, idle: string) {
+  if (!active) return idle;
+  const noun = kind === "letter" ? "letter" : "document";
+  return phase === "Queued…" ? `Queued ${noun}…` : `Writing ${noun}…`;
+}
+
+function actionNote(kind: "letter" | "document", phase: string) {
+  const noun = kind === "letter" ? "letter" : "document";
+  return phase === "Queued…"
+    ? `The ${noun} is in the queue. Writing starts when the draft ahead finishes.`
+    : `Writing the ${noun} now.`;
+}
+
 export function Drawer({
   review,
   busy,
+  busyKind,
   busyLabel,
   error,
   onClose,
@@ -56,6 +70,7 @@ export function Drawer({
 }: {
   review: Review;
   busy: boolean;
+  busyKind?: "" | "letter" | "document";
   busyLabel?: string;
   error: string;
   onClose: () => void;
@@ -221,12 +236,12 @@ export function Drawer({
                 </Button>
                 <Button tone="primary" className="px-3 py-1.5" onClick={onGemini} disabled={busy || !hasGemini}>
                   <Icon name="spark" />
-                  {busy ? busyLabel || "Writing…" : "Gemini draft"}
+                  {actionLabel("letter", busy && busyKind === "letter", busyLabel || "", "Gemini draft")}
                 </Button>
               </div>
             </div>
-            {busy && busyLabel ? (
-              <p className="mb-2 text-xs text-pine">{busyLabel === "Queued…" ? "In the queue. Writing starts when the draft ahead finishes." : "Writing now."}</p>
+            {busy && busyKind === "letter" ? (
+              <p className="mb-2 text-xs text-pine">{actionNote("letter", busyLabel || "")}</p>
             ) : null}
             {!hasGemini ? (
               <p className="mb-2 text-xs text-muted">
@@ -255,11 +270,11 @@ export function Drawer({
               <p className="label mb-0">Resume for this role</p>
               <Button tone="primary" className="px-3 py-1.5" onClick={onCreatePdf} disabled={busy}>
                 <Icon name="document" />
-                {busy ? busyLabel || "Writing the document…" : "Generate document"}
+                {actionLabel("document", busy && busyKind === "document", busyLabel || "", "Generate document")}
               </Button>
             </div>
-            {busy && busyLabel ? (
-              <p className="mb-2 text-xs text-pine">{busyLabel === "Queued…" ? "In the queue. Writing starts when the draft ahead finishes." : "Writing now."}</p>
+            {busy && busyKind === "document" ? (
+              <p className="mb-2 text-xs text-pine">{actionNote("document", busyLabel || "")}</p>
             ) : null}
             <p className="mb-2 text-xs text-muted">
               {hasGemini
