@@ -5,7 +5,9 @@ import type { Job, JobSource, JobsPayload, SourceReport } from "@/lib/types";
 const UA = "ScoutRoles/0.1 (personal job search; links back to each source)";
 const TTL = 15 * 60 * 1000;
 
-const HOMES: Record<Exclude<JobSource, "Sample">, string> = {
+type BoardSource = Exclude<JobSource, "Sample" | "Pasted">;
+
+const HOMES: Record<BoardSource, string> = {
   Remotive: "https://remotive.com",
   "Remote OK": "https://remoteok.com",
   Jobicy: "https://jobicy.com",
@@ -88,7 +90,7 @@ function money(min: unknown, max: unknown): string {
 }
 
 function job(input: {
-  source: Exclude<JobSource, "Sample">;
+  source: BoardSource;
   id: string;
   title: string;
   company: string;
@@ -168,7 +170,7 @@ function explain(error: unknown): string {
 }
 
 async function fromSource(
-  name: Exclude<JobSource, "Sample">,
+  name: BoardSource,
   run: () => Promise<Job[]>,
 ): Promise<{ jobs: Job[]; report: SourceReport }> {
   try {

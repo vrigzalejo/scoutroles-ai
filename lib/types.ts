@@ -16,6 +16,7 @@ export type JobSource =
   | "Greenhouse"
   | "Lever"
   | "Ashby"
+  | "Pasted"
   | "Sample";
 
 export type Job = {

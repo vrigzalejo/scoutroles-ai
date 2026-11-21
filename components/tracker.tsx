@@ -26,7 +26,7 @@ export function Tracker({
       <section className="rounded-3xl border border-dashed border-line bg-card px-6 py-12 text-center">
         <h2 className="font-serif text-3xl text-ink">Nothing tracked yet</h2>
         <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted">
-          Save a role from the ranked list. The letter and the original link stay in this browser.
+          Save a role from the ranked list, or open a pasted post. The letter and the posting stay in this browser.
         </p>
       </section>
     );
@@ -51,6 +51,7 @@ export function Tracker({
                     <p className="font-serif text-xl text-ink">{entry.title}</p>
                     <p className="text-sm text-muted">
                       {entry.company}
+                      {entry.source === "Pasted" ? " · Pasted post" : ""}
                       {entry.score ? ` · fit ${entry.score}` : ""}
                       {entry.updatedAt ? ` · ${timeAgo(entry.updatedAt)}` : ""}
                     </p>
